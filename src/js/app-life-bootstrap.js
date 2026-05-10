@@ -107,6 +107,14 @@ function itemBox(item) {
 
   patched += `
 
+const lifeGhosts = [];
+const perfProbe = {
+  enabled: new URLSearchParams(window.location.search).has('debugFps'),
+  frames: 0,
+  acc: 0,
+  lastFps: 0,
+};
+
 function canStomp(enemy, previousBottom) {
   if (!enemy || enemy.kind === 'thistle') {
     return false;
@@ -150,8 +158,9 @@ function loseLife() {
     return;
   }
 
+  spawnAngelGhost();
   state.lives = Math.max(0, state.lives - 1);
-  state.invincible = 2.45;
+  state.invincible = 2.65;
   state.shake = Math.max(state.shake, 2.2);
   updateHud();
 
@@ -170,6 +179,24 @@ function loseLife() {
   }
 
   respawnPlayerAfterLifeLoss();
+}
+
+function spawnAngelGhost() {
+  lifeGhosts.push({
+    x: player.x,
+    y: player.y,
+    width: player.width,
+    height: player.height,
+    sprite: selectedCharacter().sprite,
+    frame: Math.floor(state.time * 10) % selectedCharacter().sprite.cols,
+    age: 0,
+    ttl: 1.55,
+    drift: Math.random() < 0.5 ? -10 : 10,
+  });
+
+  if (lifeGhosts.length > 5) {
+    lifeGhosts.splice(0, lifeGhosts.length - 5);
+  }
 }
 
 function respawnPlayerAfterLifeLoss() {
@@ -205,11 +232,187 @@ function respawnPlayerAfterLifeLoss() {
   });
 }
 
+const __hamsterRunOriginalUpdate = update;
+update = function updateWithLifePatches(dt) {
+  __hamsterRunOriginalUpdate(dt);
+  updateAngelGhosts(dt);
+  cleanupLongRunEntities();
+  updatePerfProbe(dt);
+};
+
+const __hamsterRunOriginalDrawPlayer = drawPlayer;
+drawPlayer = function drawPlayerWithLifeGhosts() {
+  drawAngelGhosts();
+  __hamsterRunOriginalDrawPlayer();
+};
+
 const __hamsterRunOriginalUpdateHud = updateHud;
 updateHud = function updateHudWithHeartIcons() {
   __hamsterRunOriginalUpdateHud();
   renderLifeHearts();
 };
+
+function updateAngelGhosts(dt) {
+  for (let index = lifeGhosts.length - 1; index >= 0; index -= 1) {
+    const ghost = lifeGhosts[index];
+    ghost.age += dt;
+    ghost.y -= 72 * dt;
+    ghost.x += ghost.drift * dt;
+
+    if (ghost.age >= ghost.ttl) {
+      lifeGhosts.splice(index, 1);
+    }
+  }
+}
+
+function drawAngelGhosts() {
+  for (const ghost of lifeGhosts) {
+    const progress = clamp(ghost.age / ghost.ttl, 0, 1);
+    const alpha = Math.max(0, 0.62 * (1 - progress));
+    const float = Math.sin(progress * Math.PI) * 10;
+    const haloWidth = ghost.width * 0.72;
+    const haloHeight = 9;
+    const sprite = ghost.sprite;
+    const cell = sprite.cell;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(ghost.x + ghost.width / 2, ghost.y + ghost.height / 2 - float);
+    ctx.scale(1 + progress * 0.16, 1 + progress * 0.16);
+    ctx.filter = 'brightness(1.25) saturate(0.7)';
+    ctx.drawImage(
+      sprite.image,
+      ghost.frame * cell,
+      0,
+      cell,
+      cell,
+      -ghost.width / 2,
+      -ghost.height / 2,
+      ghost.width,
+      ghost.height,
+    );
+    ctx.filter = 'none';
+    ctx.strokeStyle = 'rgba(255, 248, 180, 0.9)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.ellipse(0, -ghost.height * 0.62, haloWidth / 2, haloHeight / 2, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.beginPath();
+    ctx.arc(-ghost.width * 0.28, -ghost.height * 0.2, 5 + progress * 5, 0, Math.PI * 2);
+    ctx.arc(ghost.width * 0.28, -ghost.height * 0.2, 5 + progress * 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function cleanupLongRunEntities() {
+  pruneEntityList(platforms, (platform) => platform.x + platform.width > -180, 82);
+  pruneEntityList(peanuts, (peanut) => peanut.x > -160 && !peanut.taken, 140);
+  pruneEntityList(hearts, (heart) => heart.x > -160 && !heart.taken, 24);
+  pruneEntityList(enemies, (enemy) => enemy.x > -180 && !enemy.defeated, 48);
+  pruneEntityList(decor, (item) => item.x > -180, 70);
+  pruneEntityList(bursts, (burst) => (burst.ttl ?? 0) > 0, 46);
+  pruneEntityList(backgroundProps, (prop) => prop.x > -260, 18);
+}
+
+function pruneEntityList(list, keep, maxLength) {
+  let writeIndex = 0;
+
+  for (let readIndex = 0; readIndex < list.length; readIndex += 1) {
+    const item = list[readIndex];
+
+    if (keep(item)) {
+      list[writeIndex] = item;
+      writeIndex += 1;
+    }
+  }
+
+  list.length = writeIndex;
+
+  if (list.length > maxLength) {
+    list.splice(0, list.length - maxLength);
+  }
+}
+
+function updatePerfProbe(dt) {
+  if (!perfProbe.enabled || state.mode !== 'running') {
+    return;
+  }
+
+  perfProbe.frames += 1;
+  perfProbe.acc += dt;
+
+  if (perfProbe.acc >= 1) {
+    perfProbe.lastFps = Math.round(perfProbe.frames / perfProbe.acc);
+    perfProbe.frames = 0;
+    perfProbe.acc = 0;
+
+    if (perfProbe.lastFps < 45) {
+      console.info('[Hamster Run] FPS bajos', {
+        fps: perfProbe.lastFps,
+        platforms: platforms.length,
+        peanuts: peanuts.length,
+        hearts: hearts.length,
+        enemies: enemies.length,
+        decor: decor.length,
+        bursts: bursts.length,
+      });
+    }
+  }
+}
+
+function setupMobileSafeControls() {
+  const interactiveSelector = 'button, a, input, textarea, select, [role="button"], .overlay.is-visible *';
+  let lastTouchEnd = 0;
+
+  document.addEventListener(
+    'gesturestart',
+    (event) => {
+      event.preventDefault();
+    },
+    { passive: false },
+  );
+
+  document.addEventListener(
+    'touchend',
+    (event) => {
+      const now = Date.now();
+
+      if (now - lastTouchEnd <= 340) {
+        event.preventDefault();
+      }
+
+      lastTouchEnd = now;
+    },
+    { passive: false },
+  );
+
+  canvas.addEventListener(
+    'pointerdown',
+    (event) => {
+      if (event.target.closest?.(interactiveSelector) || state.mode !== 'running') {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      canvas.setPointerCapture?.(event.pointerId);
+      jump();
+    },
+    { passive: false, capture: true },
+  );
+
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if ((event.code === 'Space' || event.code === 'ArrowUp') && state.mode === 'running') {
+        event.preventDefault();
+      }
+    },
+    { passive: false, capture: true },
+  );
+}
 
 function renderLifeHearts() {
   if (!livesEl) {
@@ -223,6 +426,7 @@ function renderLifeHearts() {
   livesEl.setAttribute('aria-label', visibleLives === 1 ? '1 vida' : visibleLives + ' vidas');
 }
 
+setupMobileSafeControls();
 updateHud();
 `;
 
