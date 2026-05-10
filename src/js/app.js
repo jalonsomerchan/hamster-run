@@ -379,10 +379,7 @@ function resetGame() {
     spawnPlatform();
   }
 
-  menu.classList.remove('is-visible');
-  home.classList.remove('is-visible');
-  pauseMenu.classList.remove('is-visible');
-  gameOver.classList.remove('is-visible');
+  setActiveOverlay(null);
   syncGameChrome();
   updateHud();
 }
@@ -543,20 +540,14 @@ function jump() {
 
 function showHome() {
   state.mode = 'home';
-  home.classList.add('is-visible');
-  menu.classList.remove('is-visible');
-  pauseMenu.classList.remove('is-visible');
-  gameOver.classList.remove('is-visible');
+  setActiveOverlay(home);
   syncGameChrome();
 }
 
 function showLevelSelect() {
   state.mode = 'menu';
   buildLevelMenu();
-  home.classList.remove('is-visible');
-  menu.classList.add('is-visible');
-  pauseMenu.classList.remove('is-visible');
-  gameOver.classList.remove('is-visible');
+  setActiveOverlay(menu);
   syncGameChrome();
 }
 
@@ -565,7 +556,7 @@ function pauseGame() {
     return;
   }
   state.mode = 'paused';
-  pauseMenu.classList.add('is-visible');
+  setActiveOverlay(pauseMenu);
   syncGameChrome();
 }
 
@@ -574,8 +565,16 @@ function resumeGame() {
     return;
   }
   state.mode = 'running';
-  pauseMenu.classList.remove('is-visible');
+  setActiveOverlay(null);
   syncGameChrome();
+}
+
+function setActiveOverlay(activeOverlay) {
+  [home, menu, pauseMenu, gameOver].forEach((overlay) => {
+    const isActive = overlay === activeOverlay;
+    overlay.hidden = !isActive;
+    overlay.classList.toggle('is-visible', isActive);
+  });
 }
 
 function syncGameChrome() {
@@ -785,7 +784,7 @@ function endGame() {
   finalTime.textContent = `${Math.floor(state.time)}s`;
   finalRecord.textContent = record.improved ? `Nuevo ${record.next}` : String(record.next);
   buildLevelMenu();
-  gameOver.classList.add('is-visible');
+  setActiveOverlay(gameOver);
   syncGameChrome();
 }
 
@@ -806,15 +805,17 @@ function draw() {
   ctx.fillRect(0, 0, state.width, state.height);
   drawBackground(hill, sun);
 
-  decor.forEach((item) => {
-    ctx.drawImage(sprites.grass, item.x, item.y, item.size, item.size);
-  });
+  if (state.mode === 'running' || state.mode === 'paused' || state.mode === 'over') {
+    decor.forEach((item) => {
+      ctx.drawImage(sprites.grass, item.x, item.y, item.size, item.size);
+    });
 
-  platforms.forEach(drawPlatform);
-  peanuts.forEach(drawPeanut);
-  enemies.forEach(drawEnemy);
-  bursts.forEach(drawBurst);
-  drawHamster();
+    platforms.forEach(drawPlatform);
+    peanuts.forEach(drawPeanut);
+    enemies.forEach(drawEnemy);
+    bursts.forEach(drawBurst);
+    drawHamster();
+  }
 
   ctx.restore();
   drawHeroPreview();

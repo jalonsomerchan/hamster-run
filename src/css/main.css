@@ -132,6 +132,10 @@ button {
     transform 180ms ease;
 }
 
+.overlay[hidden] {
+  display: none;
+}
+
 .overlay.is-visible {
   opacity: 1;
   pointer-events: auto;
@@ -161,7 +165,7 @@ button {
 
 #heroPreview {
   display: block;
-  width: min(72vw, 300px);
+  width: min(72vw, 200px);
   height: 150px;
   margin: 14px auto 18px;
 }
