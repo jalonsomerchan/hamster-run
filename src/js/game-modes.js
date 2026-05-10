@@ -32,10 +32,11 @@ const modes = [
   },
 ];
 
-let selectedModeId = localStorage.getItem(MODE_KEY) || 'endless';
+let selectedModeId = null;
 let modeSelectorRenderedFor = '';
 let currentStep = 'mode';
 let menuWasVisible = false;
+let characterChosenInFlow = false;
 
 function selectedMode() {
   return modes.find((mode) => mode.id === selectedModeId) || modes[0];
@@ -43,6 +44,7 @@ function selectedMode() {
 
 function setSelectedMode(modeId, advance = true) {
   if (!modes.some((mode) => mode.id === modeId)) return;
+
   selectedModeId = modeId;
   localStorage.setItem(MODE_KEY, selectedModeId);
   renderModeSelector(true);
@@ -54,6 +56,14 @@ function setSelectedMode(modeId, advance = true) {
   }
 }
 
+function resetFlowSelections() {
+  selectedModeId = null;
+  characterChosenInFlow = false;
+  modeSelectorRenderedFor = '';
+  renderModeSelector(true);
+  clearButtonSelection(document.querySelector('#characterGrid'));
+}
+
 function readJson(key) {
   try {
     return JSON.parse(localStorage.getItem(key) || '{}');
@@ -63,11 +73,12 @@ function readJson(key) {
 }
 
 function recordForLevel(levelId) {
+  const modeId = selectedModeId || 'endless';
   const modeRecords = readJson(MODE_RECORD_KEY);
   const legacyRecords = readJson(LEGACY_RECORD_KEY);
-  const modeRecord = modeRecords[`${selectedModeId}:${levelId}`] || 0;
+  const modeRecord = modeRecords[`${modeId}:${levelId}`] || 0;
 
-  if (selectedModeId === 'endless') {
+  if (modeId === 'endless') {
     return Math.max(modeRecord, legacyRecords[levelId] || 0);
   }
 
@@ -80,9 +91,7 @@ function injectStepperStyles() {
   const style = document.createElement('style');
   style.id = 'modeStepperStyles';
   style.textContent = `
-    .level-panel {
-      gap: 0;
-    }
+    .level-panel { gap: 0; }
 
     .selection-progress {
       display: grid;
@@ -114,9 +123,7 @@ function injectStepperStyles() {
       display: none !important;
     }
 
-    .selection-step {
-      animation: stepIn 150ms ease-out;
-    }
+    .selection-step { animation: stepIn 150ms ease-out; }
 
     @keyframes stepIn {
       from { opacity: 0; transform: translateY(8px); }
@@ -130,7 +137,8 @@ function injectStepperStyles() {
       margin-top: 14px;
     }
 
-    #selectionNextButton {
+    #selectionNextButton,
+    #startButton {
       display: none !important;
     }
 
@@ -138,11 +146,6 @@ function injectStepperStyles() {
     .character-grid,
     .level-grid {
       scroll-padding: 12px;
-    }
-
-    .mode-grid,
-    .level-grid,
-    .character-grid {
       max-height: min(45dvh, 390px);
       overflow-y: auto;
       overscroll-behavior: contain;
@@ -206,7 +209,7 @@ function ensureModeSelector() {
   section.innerHTML = `
     <p class="eyebrow">Modo</p>
     <div class="mode-grid" id="modeGrid"></div>
-    <p class="selection-step-help">Al tocar un modo avanzarás al selector de personaje.</p>
+    <p class="selection-step-help">Elige un modo para continuar. No hay modo preseleccionado.</p>
   `;
 
   levelPanel.insertBefore(section, characterSelect || document.querySelector('#levelGrid'));
@@ -274,14 +277,29 @@ function setupAutoAdvanceDelegation() {
       const button = event.target.closest('button');
       if (!button || !menu.contains(button)) return;
 
-      if (button.closest('#modeGrid')) return;
-
       if (currentStep === 'character' && button.closest('#characterGrid')) {
+        characterChosenInFlow = true;
         window.setTimeout(() => showStep('level', true), 0);
+        return;
+      }
+
+      if (currentStep === 'level' && button.closest('#levelGrid')) {
+        window.setTimeout(() => startSelectedLevel(), 35);
       }
     },
     true,
   );
+}
+
+function startSelectedLevel() {
+  const startButton = document.querySelector('#startButton');
+  if (!startButton) return;
+
+  startButton.hidden = false;
+  startButton.removeAttribute('inert');
+  startButton.click();
+  startButton.hidden = true;
+  startButton.setAttribute('inert', '');
 }
 
 function renderModeSelector(force = false) {
@@ -290,7 +308,7 @@ function renderModeSelector(force = false) {
   const grid = document.querySelector('#modeGrid');
   if (!grid) return;
 
-  const renderKey = `${selectedModeId}:${modes.length}`;
+  const renderKey = `${selectedModeId || 'none'}:${modes.length}`;
   if (!force && modeSelectorRenderedFor === renderKey && grid.children.length === modes.length) return;
 
   modeSelectorRenderedFor = renderKey;
@@ -334,6 +352,13 @@ function updateLevelRecordLabels() {
   });
 }
 
+function clearButtonSelection(container) {
+  container?.querySelectorAll('button').forEach((button) => {
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-current', 'false');
+  });
+}
+
 function goStep(direction) {
   const index = Math.max(0, STEPS.indexOf(currentStep));
   const nextIndex = Math.max(0, Math.min(STEPS.length - 1, index + direction));
@@ -349,7 +374,6 @@ function showStep(step, focus = false) {
   const levelPanel = document.querySelector('.level-panel');
   const title = levelPanel?.querySelector('h2');
   const copy = levelPanel?.querySelector('.copy');
-  const startButton = document.querySelector('#startButton');
   const backButton = document.querySelector('#selectionBackButton');
 
   const titles = {
@@ -358,13 +382,17 @@ function showStep(step, focus = false) {
     level: 'Elige ruta',
   };
   const descriptions = {
-    mode: 'Toca una opción y avanzas automáticamente.',
-    character: 'Toca un personaje y pasarás al nivel.',
-    level: 'Elige ruta y pulsa jugar.',
+    mode: 'Toca una opción para pasar al personaje.',
+    character: 'No hay personaje preseleccionado: toca uno para continuar.',
+    level: 'Toca un nivel y la partida empezará automáticamente.',
   };
 
   if (title) title.textContent = titles[step];
   if (copy) copy.textContent = descriptions[step];
+
+  if (step === 'character' && !characterChosenInFlow) {
+    clearButtonSelection(document.querySelector('#characterGrid'));
+  }
 
   document.querySelectorAll('.selection-step').forEach((section) => {
     const active = section.dataset.step === step;
@@ -379,10 +407,6 @@ function showStep(step, focus = false) {
   });
 
   if (backButton) backButton.hidden = step === 'mode';
-  if (startButton) {
-    startButton.hidden = step !== 'level';
-    startButton.toggleAttribute('inert', step !== 'level');
-  }
 
   resetStepScroll();
 
@@ -406,10 +430,9 @@ function focusCurrentStep() {
   const activeStep = document.querySelector(`.selection-step[data-step="${currentStep}"]`);
   const selected = activeStep?.querySelector('[aria-pressed="true"]');
   const firstButton = activeStep?.querySelector('button');
-  const startButton = document.querySelector('#startButton:not([hidden])');
 
   window.requestAnimationFrame(() => {
-    (selected || firstButton || startButton)?.focus?.({ preventScroll: true });
+    (selected || firstButton)?.focus?.({ preventScroll: true });
   });
 }
 
@@ -449,6 +472,7 @@ function install() {
         updateLevelRecordLabels();
 
         if (visible && !menuWasVisible) {
+          resetFlowSelections();
           showStep('mode', true);
         }
 
