@@ -63,8 +63,24 @@ function inlineImports(source) {
     });
 }
 
+function injectDrawFeedback(source) {
+  return source.replace(
+    /(function\s+drawPlayer\s*\([^)]*\)\s*{)/,
+    `$1\n  if (state.invincible > 0 && Math.floor(state.invincible * 12) % 2 === 0) {\n    ctx.save();\n    ctx.globalAlpha = 0.38;\n  }\n`,
+  ).replace(
+    /(function\s+drawPlayer\s*\([^)]*\)\s*{[\s\S]*?\n})/,
+    (match) => {
+      if (match.includes('__lifeFeedbackDrawRestore')) {
+        return match;
+      }
+
+      return match.replace(/\n}$/, `\n  if (state.invincible > 0 && Math.floor(state.invincible * 12) % 2 === 0) {\n    ctx.restore();\n  }\n  // __lifeFeedbackDrawRestore\n}`);
+    },
+  );
+}
+
 function patchLifeSystem(source) {
-  let patched = source;
+  let patched = injectDrawFeedback(source);
 
   if (!/function\s+itemBox\s*\(/.test(patched)) {
     patched += `
@@ -81,8 +97,46 @@ function itemBox(item) {
 `;
   }
 
-  if (!/function\s+loseLife\s*\(/.test(patched)) {
-    patched += `
+  patched += `
+
+function canStomp(enemy, previousBottom) {
+  if (!enemy || enemy.kind === 'thistle') {
+    return false;
+  }
+
+  const box = enemyBox(enemy);
+  const playerBottom = player.y + player.height;
+  const playerCenterX = player.x + player.width / 2;
+  const enemyLeft = box.x + 4;
+  const enemyRight = box.x + box.width - 4;
+  const isOverEnemy = playerCenterX >= enemyLeft && playerCenterX <= enemyRight;
+  const wasAboveEnemy = previousBottom <= box.y + Math.min(24, box.height * 0.55);
+  const isFallingOrLanding = player.vy >= -80 || previousBottom <= box.y + 10;
+
+  return isOverEnemy && wasAboveEnemy && isFallingOrLanding;
+}
+
+function stompEnemy(enemy) {
+  if (!enemy || enemy.defeated) {
+    return;
+  }
+
+  enemy.defeated = true;
+  enemy.defeatTime = 0.28;
+  state.score += enemy.kind === 'flying' ? 180 : 140;
+  player.vy = -state.level.jump * 0.46;
+  player.jumps = 1;
+  player.grounded = false;
+
+  bursts.push({
+    x: enemy.x + enemy.width / 2,
+    y: enemy.y + enemy.height / 2,
+    ttl: 0.34,
+    life: 0.34,
+    radius: Math.max(enemy.width, enemy.height) * 0.55,
+    color: 'rgba(255, 232, 120, 0.65)',
+  });
+}
 
 function loseLife() {
   if (state.mode !== 'running' || state.invincible > 0) {
@@ -90,9 +144,18 @@ function loseLife() {
   }
 
   state.lives = Math.max(0, state.lives - 1);
-  state.invincible = 1.6;
-  state.shake = Math.max(state.shake, 1.4);
+  state.invincible = 2.45;
+  state.shake = Math.max(state.shake, 2.2);
   updateHud();
+
+  bursts.push({
+    x: player.x + player.width / 2,
+    y: player.y + player.height / 2,
+    ttl: 0.72,
+    life: 0.72,
+    radius: 28,
+    color: 'rgba(255, 65, 85, 0.74)',
+  });
 
   if (state.lives <= 0) {
     endGame();
@@ -113,13 +176,13 @@ function respawnPlayerAfterLifeLoss() {
     return;
   }
 
-  player.x = clamp(player.x, safePlatform.x + 24, safePlatform.x + safePlatform.width - player.width - 24);
-  player.y = safePlatform.y - player.height - 4;
+  player.x = clamp(player.x, safePlatform.x + 30, safePlatform.x + safePlatform.width - player.width - 30);
+  player.y = safePlatform.y - player.height - 18;
   player.vy = 0;
   player.jumps = 0;
   player.grounded = true;
 
-  const dangerPadding = 110;
+  const dangerPadding = 155;
   enemies = enemies.filter((enemy) => {
     const enemyCenter = enemy.x + enemy.width / 2;
     return enemyCenter < player.x - dangerPadding || enemyCenter > player.x + player.width + dangerPadding;
@@ -128,16 +191,12 @@ function respawnPlayerAfterLifeLoss() {
   bursts.push({
     x: player.x + player.width / 2,
     y: player.y + player.height / 2,
-    ttl: 0.45,
-    life: 0.45,
-    radius: 16,
-    color: 'rgba(255, 91, 91, 0.5)',
+    ttl: 0.95,
+    life: 0.95,
+    radius: 18,
+    color: 'rgba(255, 91, 91, 0.54)',
   });
 }
-`;
-  }
-
-  patched += `
 
 const __hamsterRunOriginalUpdateHud = updateHud;
 updateHud = function updateHudWithHeartIcons() {
