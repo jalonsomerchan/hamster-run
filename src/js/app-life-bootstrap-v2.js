@@ -74,15 +74,26 @@ function patchSource(source) {
 
 const lifeGhosts = [];
 const perfProbe = { enabled: new URLSearchParams(window.location.search).has('debugFps'), frames: 0, acc: 0 };
+let lifeGhostCanvas = null;
+let lifeGhostCtx = null;
+let lifeGhostAnimation = 0;
+let lifeGhostLast = 0;
+let lifeRespawnDelay = 0;
+let pendingRespawnPoint = null;
 
 function canStomp(enemy, previousBottom) {
   if (!enemy || enemy.kind === 'thistle') return false;
+
   const box = enemyBox(enemy);
-  const playerCenterX = player.x + player.width / 2;
-  return playerCenterX >= box.x + 4 &&
-    playerCenterX <= box.x + box.width - 4 &&
-    previousBottom <= box.y + Math.min(24, box.height * 0.55) &&
-    (player.vy >= -80 || previousBottom <= box.y + 10);
+  const playerHitbox = playerBox(8);
+  const playerBottom = player.y + player.height;
+  const horizontalOverlap = Math.min(playerHitbox.x + playerHitbox.width, box.x + box.width) - Math.max(playerHitbox.x, box.x);
+  const minRequiredOverlap = Math.min(playerHitbox.width, box.width) * 0.18;
+  const wasAboveEnemy = previousBottom <= box.y + Math.max(18, box.height * 0.48);
+  const stillInTopZone = playerBottom <= box.y + box.height * 0.78;
+  const fallingOrAlmostFalling = player.vy >= -120;
+
+  return horizontalOverlap >= minRequiredOverlap && wasAboveEnemy && stillInTopZone && fallingOrAlmostFalling;
 }
 
 function stompEnemy(enemy) {
@@ -97,63 +108,177 @@ function stompEnemy(enemy) {
 }
 
 function loseLife() {
-  if (state.mode !== 'running' || state.invincible > 0) return;
+  if (state.mode !== 'running' || state.invincible > 0 || lifeRespawnDelay > 0) return;
+
+  pendingRespawnPoint = findSafeRespawnPoint();
   spawnLifeGhost();
   state.lives = Math.max(0, state.lives - 1);
-  state.invincible = 2.65;
+  state.invincible = 2.9;
   state.shake = Math.max(state.shake, 2.2);
   updateHud();
   bursts.push({ x: clamp(player.x + player.width / 2, 20, state.width - 20), y: clamp(player.y + player.height / 2, 70, state.height - 90), ttl: 0.72, life: 0.72, radius: 28, color: 'rgba(255, 65, 85, 0.74)' });
-  if (state.lives <= 0) { endGame(); return; }
-  respawnPlayerAfterLifeLoss();
+
+  if (state.lives <= 0) {
+    endGame();
+    return;
+  }
+
+  lifeRespawnDelay = 0.95;
+  player.y = state.height + 520;
+  player.vy = 0;
+  player.grounded = false;
+}
+
+function findSafeRespawnPoint() {
+  const safePlatform = platforms.find((platform) => platform.x <= player.x && platform.x + platform.width >= player.x + player.width) ||
+    platforms.find((platform) => platform.x + platform.width > player.x + player.width) || platforms[0];
+
+  if (!safePlatform) return null;
+
+  return {
+    x: clamp(player.x, safePlatform.x + 30, safePlatform.x + safePlatform.width - player.width - 30),
+    y: safePlatform.y - player.height - 18,
+  };
 }
 
 function spawnLifeGhost() {
+  ensureLifeGhostLayer();
   const character = selectedCharacter();
   const sprite = character.sprite;
   lifeGhosts.push({
-    x: clamp(player.x, 16, state.width - player.width - 16),
-    y: clamp(player.y, 84, state.height - player.height - 96),
+    x: clamp(player.x, 20, state.width - player.width - 20),
+    y: clamp(player.y, 96, state.height - player.height - 120),
     width: player.width,
     height: player.height,
     sprite,
     frame: Math.floor(state.time * 10) % sprite.cols,
     age: 0,
-    ttl: 1.9,
-    drift: Math.random() < 0.5 ? -10 : 10,
+    ttl: 2.1,
+    drift: Math.random() < 0.5 ? -12 : 12,
   });
   if (lifeGhosts.length > 5) lifeGhosts.splice(0, lifeGhosts.length - 5);
+  startLifeGhostAnimation();
+}
+
+function ensureLifeGhostLayer() {
+  if (!lifeGhostCanvas) {
+    lifeGhostCanvas = document.createElement('canvas');
+    lifeGhostCanvas.id = 'lifeGhostLayer';
+    Object.assign(lifeGhostCanvas.style, { position: 'fixed', inset: '0', width: '100vw', height: '100dvh', pointerEvents: 'none', zIndex: '12' });
+    document.body.append(lifeGhostCanvas);
+    lifeGhostCtx = lifeGhostCanvas.getContext('2d');
+  }
+
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = Math.floor(window.innerWidth * dpr);
+  const height = Math.floor(window.innerHeight * dpr);
+
+  if (lifeGhostCanvas.width !== width || lifeGhostCanvas.height !== height) {
+    lifeGhostCanvas.width = width;
+    lifeGhostCanvas.height = height;
+  }
+
+  lifeGhostCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function startLifeGhostAnimation() {
+  if (lifeGhostAnimation) return;
+  lifeGhostLast = performance.now();
+  lifeGhostAnimation = requestAnimationFrame(tickLifeGhosts);
+}
+
+function tickLifeGhosts(now) {
+  const dt = Math.min(0.05, Math.max(0, (now - lifeGhostLast) / 1000));
+  lifeGhostLast = now;
+  ensureLifeGhostLayer();
+  lifeGhostCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+  for (let index = lifeGhosts.length - 1; index >= 0; index -= 1) {
+    const ghost = lifeGhosts[index];
+    ghost.age += dt;
+    ghost.y -= 88 * dt;
+    ghost.x += ghost.drift * dt;
+    drawLifeGhost(ghost);
+    if (ghost.age >= ghost.ttl) lifeGhosts.splice(index, 1);
+  }
+
+  if (lifeGhosts.length) {
+    lifeGhostAnimation = requestAnimationFrame(tickLifeGhosts);
+    return;
+  }
+
+  lifeGhostAnimation = 0;
+  lifeGhostCtx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+}
+
+function drawLifeGhost(ghost) {
+  const progress = clamp(ghost.age / ghost.ttl, 0, 1);
+  const sprite = ghost.sprite;
+  const cell = sprite.cell;
+  lifeGhostCtx.save();
+  lifeGhostCtx.globalAlpha = Math.max(0, 0.86 * (1 - progress));
+  lifeGhostCtx.translate(ghost.x + ghost.width / 2, ghost.y + ghost.height / 2 - Math.sin(progress * Math.PI) * 14);
+  lifeGhostCtx.scale(1 + progress * 0.2, 1 + progress * 0.2);
+  lifeGhostCtx.filter = 'brightness(1.42) saturate(0.58)';
+  lifeGhostCtx.drawImage(sprite.image, ghost.frame * cell, 0, cell, cell, -ghost.width / 2, -ghost.height / 2, ghost.width, ghost.height);
+  lifeGhostCtx.filter = 'none';
+  lifeGhostCtx.strokeStyle = 'rgba(255, 248, 180, 0.98)';
+  lifeGhostCtx.lineWidth = 3;
+  lifeGhostCtx.beginPath();
+  lifeGhostCtx.ellipse(0, -ghost.height * 0.68, ghost.width * 0.42, 5, 0, 0, Math.PI * 2);
+  lifeGhostCtx.stroke();
+  lifeGhostCtx.fillStyle = 'rgba(255, 255, 255, 0.62)';
+  lifeGhostCtx.beginPath();
+  lifeGhostCtx.arc(-ghost.width * 0.3, -ghost.height * 0.2, 6 + progress * 6, 0, Math.PI * 2);
+  lifeGhostCtx.arc(ghost.width * 0.3, -ghost.height * 0.2, 6 + progress * 6, 0, Math.PI * 2);
+  lifeGhostCtx.fill();
+  lifeGhostCtx.restore();
 }
 
 function respawnPlayerAfterLifeLoss() {
-  const safePlatform = platforms.find((platform) => platform.x <= player.x && platform.x + platform.width >= player.x + player.width) ||
-    platforms.find((platform) => platform.x + platform.width > player.x + player.width) || platforms[0];
-  if (!safePlatform) { endGame(); return; }
-  player.x = clamp(player.x, safePlatform.x + 30, safePlatform.x + safePlatform.width - player.width - 30);
-  player.y = safePlatform.y - player.height - 18;
+  const point = pendingRespawnPoint || findSafeRespawnPoint();
+  pendingRespawnPoint = null;
+
+  if (!point) {
+    endGame();
+    return;
+  }
+
+  player.x = point.x;
+  player.y = point.y;
   player.vy = 0;
   player.jumps = 0;
   player.grounded = true;
+
   const dangerPadding = 155;
   enemies = enemies.filter((enemy) => {
     const enemyCenter = enemy.x + enemy.width / 2;
     return enemyCenter < player.x - dangerPadding || enemyCenter > player.x + player.width + dangerPadding;
   });
+
   bursts.push({ x: player.x + player.width / 2, y: player.y + player.height / 2, ttl: 0.95, life: 0.95, radius: 18, color: 'rgba(255, 91, 91, 0.54)' });
 }
 
 const originalUpdate = update;
 update = function updateWithLifePatches(dt) {
+  if (lifeRespawnDelay > 0) {
+    lifeRespawnDelay = Math.max(0, lifeRespawnDelay - dt);
+    state.time += dt;
+    state.invincible = Math.max(state.invincible, 1.45);
+    state.shake = Math.max(0, state.shake - dt * 18);
+
+    if (lifeRespawnDelay === 0) {
+      respawnPlayerAfterLifeLoss();
+    }
+
+    cleanupLongRunEntities();
+    updatePerfProbe(dt);
+    return;
+  }
+
   originalUpdate(dt);
-  updateLifeGhosts(dt);
   cleanupLongRunEntities();
   updatePerfProbe(dt);
-};
-
-const originalDrawPlayer = drawPlayer;
-drawPlayer = function drawPlayerWithGhosts() {
-  originalDrawPlayer();
-  drawLifeGhosts();
 };
 
 const originalUpdateHud = updateHud;
@@ -161,42 +286,6 @@ updateHud = function updateHudWithHeartIcons() {
   originalUpdateHud();
   renderLifeHearts();
 };
-
-function updateLifeGhosts(dt) {
-  for (let index = lifeGhosts.length - 1; index >= 0; index -= 1) {
-    const ghost = lifeGhosts[index];
-    ghost.age += dt;
-    ghost.y -= 84 * dt;
-    ghost.x += ghost.drift * dt;
-    if (ghost.age >= ghost.ttl) lifeGhosts.splice(index, 1);
-  }
-}
-
-function drawLifeGhosts() {
-  for (const ghost of lifeGhosts) {
-    const progress = clamp(ghost.age / ghost.ttl, 0, 1);
-    const sprite = ghost.sprite;
-    const cell = sprite.cell;
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, 0.78 * (1 - progress));
-    ctx.translate(ghost.x + ghost.width / 2, ghost.y + ghost.height / 2 - Math.sin(progress * Math.PI) * 12);
-    ctx.scale(1 + progress * 0.18, 1 + progress * 0.18);
-    ctx.filter = 'brightness(1.35) saturate(0.65)';
-    ctx.drawImage(sprite.image, ghost.frame * cell, 0, cell, cell, -ghost.width / 2, -ghost.height / 2, ghost.width, ghost.height);
-    ctx.filter = 'none';
-    ctx.strokeStyle = 'rgba(255, 248, 180, 0.95)';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.ellipse(0, -ghost.height * 0.64, ghost.width * 0.41, 5, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.58)';
-    ctx.beginPath();
-    ctx.arc(-ghost.width * 0.28, -ghost.height * 0.2, 5 + progress * 5, 0, Math.PI * 2);
-    ctx.arc(ghost.width * 0.28, -ghost.height * 0.2, 5 + progress * 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
-}
 
 function cleanupLongRunEntities() {
   pruneEntityList(platforms, (platform) => platform.x + platform.width > -180, 82);
@@ -240,7 +329,7 @@ function setupMobileSafeControls() {
     lastTouchEnd = now;
   }, { passive: false });
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.target.closest?.(interactiveSelector) || state.mode !== 'running') return;
+    if (event.target.closest?.(interactiveSelector) || state.mode !== 'running' || lifeRespawnDelay > 0) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     canvas.setPointerCapture?.(event.pointerId);

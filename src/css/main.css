@@ -7,6 +7,7 @@
   background: #182619;
   color: #fff8df;
   touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
 }
 
 * {
@@ -20,6 +21,8 @@ body {
   min-height: 100%;
   margin: 0;
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
 }
 
 body {
@@ -31,6 +34,7 @@ body {
 
 button {
   font: inherit;
+  touch-action: manipulation;
 }
 
 .game-shell {
@@ -39,6 +43,8 @@ button {
   height: 100dvh;
   overflow: hidden;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
 
 #game {
@@ -46,6 +52,7 @@ button {
   width: 100%;
   height: 100%;
   background: #84c7dd;
+  touch-action: none;
 }
 
 .hud {
@@ -129,6 +136,7 @@ button {
   transition:
     opacity 180ms ease,
     transform 180ms ease;
+  touch-action: manipulation;
 }
 
 .overlay[hidden] {
@@ -145,6 +153,8 @@ button {
   max-height: calc(100dvh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow: auto;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   border: 3px solid rgba(74, 48, 26, 0.28);
   border-radius: 8px;
   background: #fff2c8;
@@ -261,6 +271,7 @@ h2 {
   padding-right: 3px;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .life-hearts {
