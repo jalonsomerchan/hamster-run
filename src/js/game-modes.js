@@ -1,4 +1,7 @@
 const MODE_KEY = 'hamster-run-selected-mode';
+const MODE_RECORD_KEY = 'hamster-run-records-v1-by-mode-v1';
+const LEGACY_RECORD_KEY = 'hamster-run-records-v1';
+const LEVEL_IDS = ['meadow', 'clover', 'bridge', 'cookie', 'straw', 'moon'];
 
 const modes = [
   {
@@ -39,7 +42,28 @@ function setSelectedMode(modeId) {
   selectedModeId = modeId;
   localStorage.setItem(MODE_KEY, selectedModeId);
   renderModeSelector();
+  updateLevelRecordLabels();
   window.dispatchEvent(new CustomEvent('hamster-run-mode-change', { detail: selectedMode() }));
+}
+
+function readJson(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function recordForLevel(levelId) {
+  const modeRecords = readJson(MODE_RECORD_KEY);
+  const legacyRecords = readJson(LEGACY_RECORD_KEY);
+  const modeRecord = modeRecords[`${selectedModeId}:${levelId}`] || 0;
+
+  if (selectedModeId === 'endless') {
+    return Math.max(modeRecord, legacyRecords[levelId] || 0);
+  }
+
+  return modeRecord;
 }
 
 function ensureModeSelector() {
@@ -89,6 +113,20 @@ function renderModeSelector() {
   }
 }
 
+function updateLevelRecordLabels() {
+  const cards = [...document.querySelectorAll('#levelGrid .level-card')];
+  const mode = selectedMode();
+
+  cards.forEach((card, index) => {
+    const levelId = LEVEL_IDS[index];
+    const small = card.querySelector('small');
+
+    if (!levelId || !small) return;
+
+    small.textContent = `Récord ${mode.name}: ${recordForLevel(levelId)}`;
+  });
+}
+
 function setupModeKeyboard() {
   document.addEventListener('keydown', (event) => {
     const grid = document.querySelector('#modeGrid');
@@ -112,7 +150,10 @@ function setupModeKeyboard() {
 }
 
 function install() {
-  const observer = new MutationObserver(renderModeSelector);
+  const observer = new MutationObserver(() => {
+    renderModeSelector();
+    updateLevelRecordLabels();
+  });
   const menu = document.querySelector('#menu');
 
   if (menu) {
@@ -120,6 +161,7 @@ function install() {
   }
 
   renderModeSelector();
+  updateLevelRecordLabels();
   setupModeKeyboard();
 }
 
@@ -128,6 +170,7 @@ window.HamsterRunModes = {
   getSelectedMode: selectedMode,
   getSelectedModeId: () => selectedMode().id,
   setSelectedMode,
+  refreshRecords: updateLevelRecordLabels,
 };
 
 install();
