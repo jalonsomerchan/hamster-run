@@ -232,5 +232,10 @@ updateHud();
 const patchedSource = patchLifeSystem(inlineImports(appSource));
 const patchedModuleUrl = URL.createObjectURL(new Blob([patchedSource], { type: 'text/javascript' }));
 
-await import(patchedModuleUrl);
-URL.revokeObjectURL(patchedModuleUrl);
+import(patchedModuleUrl)
+  .catch((error) => {
+    console.error('No se pudo cargar Hamster Run', error);
+  })
+  .finally(() => {
+    URL.revokeObjectURL(patchedModuleUrl);
+  });
