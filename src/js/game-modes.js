@@ -40,13 +40,17 @@ function selectedMode() {
   return modes.find((mode) => mode.id === selectedModeId) || modes[0];
 }
 
-function setSelectedMode(modeId) {
+function setSelectedMode(modeId, advance = true) {
   if (!modes.some((mode) => mode.id === modeId)) return;
   selectedModeId = modeId;
   localStorage.setItem(MODE_KEY, selectedModeId);
   renderModeSelector(true);
   updateLevelRecordLabels();
   window.dispatchEvent(new CustomEvent('hamster-run-mode-change', { detail: selectedMode() }));
+
+  if (advance) {
+    showStep('character', true);
+  }
 }
 
 function readJson(key) {
@@ -79,7 +83,7 @@ function injectStepperStyles() {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 6px;
-      margin: 16px 0 6px;
+      margin: 14px 0 8px;
     }
 
     .selection-progress span {
@@ -107,13 +111,13 @@ function injectStepperStyles() {
 
     .selection-step-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr;
       gap: 8px;
       margin-top: 14px;
     }
 
-    .selection-step-actions button:only-child {
-      grid-column: 1 / -1;
+    #selectionNextButton {
+      display: none !important;
     }
 
     .mode-grid,
@@ -122,8 +126,18 @@ function injectStepperStyles() {
       scroll-padding: 12px;
     }
 
-    .mode-grid {
-      max-height: min(36dvh, 300px);
+    .mode-grid,
+    .level-grid {
+      max-height: min(42dvh, 380px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      padding-right: 3px;
+    }
+
+    .character-grid {
+      max-height: min(38dvh, 320px);
       overflow-y: auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
@@ -133,10 +147,6 @@ function injectStepperStyles() {
 
     @media (max-width: 430px) {
       .mode-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .selection-step-actions {
         grid-template-columns: 1fr;
       }
     }
@@ -196,6 +206,7 @@ function ensureStepStructure() {
   levelGrid?.setAttribute('data-step', 'level');
 
   ensureStepActions();
+  setupAutoAdvanceDelegation();
 }
 
 function ensureStepActions() {
@@ -209,12 +220,30 @@ function ensureStepActions() {
   actions.className = 'selection-step-actions';
   actions.innerHTML = `
     <button id="selectionBackButton" class="ghost-button" type="button">Volver</button>
-    <button id="selectionNextButton" class="primary-button" type="button">Continuar</button>
+    <button id="selectionNextButton" class="primary-button" type="button" hidden>Continuar</button>
   `;
 
   levelPanel.insertBefore(actions, startButton);
   document.querySelector('#selectionBackButton')?.addEventListener('click', () => goStep(-1));
-  document.querySelector('#selectionNextButton')?.addEventListener('click', () => goStep(1));
+}
+
+function setupAutoAdvanceDelegation() {
+  const menu = document.querySelector('#menu');
+  if (!menu || menu.dataset.autoAdvanceReady === 'true') return;
+
+  menu.dataset.autoAdvanceReady = 'true';
+  menu.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (!button) return;
+
+    if (button.closest('#modeGrid')) {
+      return;
+    }
+
+    if (currentStep === 'character' && button.closest('#characterGrid')) {
+      window.requestAnimationFrame(() => showStep('level', true));
+    }
+  });
 }
 
 function renderModeSelector(force = false) {
@@ -245,7 +274,7 @@ function renderModeSelector(force = false) {
       <span><strong>${mode.name}</strong>${mode.detail}</span>
       <b>${mode.tag}</b>
     `;
-    button.addEventListener('click', () => setSelectedMode(mode.id));
+    button.addEventListener('click', () => setSelectedMode(mode.id, true));
     grid.append(button);
   }
 }
@@ -284,7 +313,6 @@ function showStep(step, focus = false) {
   const copy = levelPanel?.querySelector('.copy');
   const startButton = document.querySelector('#startButton');
   const backButton = document.querySelector('#selectionBackButton');
-  const nextButton = document.querySelector('#selectionNextButton');
 
   const titles = {
     mode: 'Elige modo',
@@ -292,9 +320,9 @@ function showStep(step, focus = false) {
     level: 'Elige ruta',
   };
   const descriptions = {
-    mode: 'Primero selecciona cómo quieres jugar.',
-    character: 'Ahora elige con quién quieres correr.',
-    level: 'Por último, elige el nivel y empieza la partida.',
+    mode: 'Selecciona un modo para pasar al personaje.',
+    character: 'Toca un personaje para continuar al nivel.',
+    level: 'Elige el nivel y empieza la partida.',
   };
 
   if (title) title.textContent = titles[step];
@@ -313,7 +341,6 @@ function showStep(step, focus = false) {
   });
 
   if (backButton) backButton.hidden = step === 'mode';
-  if (nextButton) nextButton.hidden = step === 'level';
   if (startButton) {
     startButton.hidden = step !== 'level';
     startButton.toggleAttribute('inert', step !== 'level');
@@ -333,7 +360,7 @@ function resetStepScroll() {
   if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' });
   activeStep?.scrollTo?.({ top: 0, behavior: 'instant' });
 
-  const grid = activeStep?.matches('#levelGrid, #modeGrid, .character-select')
+  const grid = activeStep?.matches('#levelGrid')
     ? activeStep
     : activeStep?.querySelector('.mode-grid, .character-grid, .level-grid');
   grid?.scrollTo?.({ top: 0, behavior: 'instant' });
@@ -343,11 +370,10 @@ function focusCurrentStep() {
   const activeStep = document.querySelector(`.selection-step[data-step="${currentStep}"]`);
   const selected = activeStep?.querySelector('[aria-pressed="true"]');
   const firstButton = activeStep?.querySelector('button');
-  const nextButton = document.querySelector('#selectionNextButton:not([hidden])');
   const startButton = document.querySelector('#startButton:not([hidden])');
 
   window.requestAnimationFrame(() => {
-    (selected || firstButton || startButton || nextButton)?.focus?.({ preventScroll: true });
+    (selected || firstButton || startButton)?.focus?.({ preventScroll: true });
   });
 }
 
@@ -355,10 +381,12 @@ function setupModeKeyboard() {
   document.addEventListener('keydown', (event) => {
     const grid = document.querySelector('#modeGrid');
     if (!grid || !grid.contains(document.activeElement)) return;
-    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End', 'Enter', ' '].includes(event.key)) return;
 
     const buttons = [...grid.querySelectorAll('button')];
     if (!buttons.length) return;
+
+    if (event.key === 'Enter' || event.key === ' ') return;
 
     event.preventDefault();
     const index = Math.max(0, buttons.indexOf(document.activeElement));
