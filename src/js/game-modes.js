@@ -2,6 +2,7 @@ const MODE_KEY = 'hamster-run-selected-mode';
 const MODE_RECORD_KEY = 'hamster-run-records-v1-by-mode-v1';
 const LEGACY_RECORD_KEY = 'hamster-run-records-v1';
 const LEVEL_IDS = ['meadow', 'clover', 'bridge', 'cookie', 'straw', 'moon'];
+const STEPS = ['mode', 'character', 'level'];
 
 const modes = [
   {
@@ -33,6 +34,7 @@ const modes = [
 
 let selectedModeId = localStorage.getItem(MODE_KEY) || 'endless';
 let modeSelectorRenderedFor = '';
+let currentStep = 'mode';
 
 function selectedMode() {
   return modes.find((mode) => mode.id === selectedModeId) || modes[0];
@@ -67,6 +69,100 @@ function recordForLevel(levelId) {
   return modeRecord;
 }
 
+function injectStepperStyles() {
+  if (document.querySelector('#modeStepperStyles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'modeStepperStyles';
+  style.textContent = `
+    .selection-progress {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin: 16px 0 6px;
+    }
+
+    .selection-progress span {
+      border-radius: 999px;
+      background: rgba(56, 40, 22, 0.1);
+      color: #74532b;
+      font-size: 0.68rem;
+      font-weight: 900;
+      padding: 6px 7px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .selection-progress span[aria-current='step'] {
+      background: #d9f0a7;
+      color: #33511f;
+      box-shadow: inset 0 0 0 2px rgba(95, 143, 67, 0.22);
+    }
+
+    .selection-step[hidden],
+    #levelGrid[hidden],
+    #startButton[hidden] {
+      display: none !important;
+    }
+
+    .selection-step-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .selection-step-actions button:only-child {
+      grid-column: 1 / -1;
+    }
+
+    .mode-grid,
+    .character-grid,
+    .level-grid {
+      scroll-padding: 12px;
+    }
+
+    .mode-grid {
+      max-height: min(36dvh, 300px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      padding-right: 3px;
+    }
+
+    @media (max-width: 430px) {
+      .mode-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .selection-step-actions {
+        grid-template-columns: 1fr;
+      }
+    }
+  `;
+  document.head.append(style);
+}
+
+function ensureStepper() {
+  const levelPanel = document.querySelector('.level-panel');
+  const heading = levelPanel?.querySelector('h2');
+
+  if (!levelPanel || document.querySelector('#selectionProgress')) return;
+
+  const progress = document.createElement('div');
+  progress.id = 'selectionProgress';
+  progress.className = 'selection-progress';
+  progress.setAttribute('aria-label', 'Progreso de selección');
+  progress.innerHTML = `
+    <span data-step-indicator="mode">1. Modo</span>
+    <span data-step-indicator="character">2. Personaje</span>
+    <span data-step-indicator="level">3. Nivel</span>
+  `;
+
+  heading?.after(progress);
+}
+
 function ensureModeSelector() {
   const levelPanel = document.querySelector('.level-panel');
   const characterSelect = document.querySelector('.character-select');
@@ -75,7 +171,8 @@ function ensureModeSelector() {
 
   const section = document.createElement('div');
   section.id = 'modeSelect';
-  section.className = 'mode-select';
+  section.className = 'mode-select selection-step';
+  section.dataset.step = 'mode';
   section.setAttribute('aria-label', 'Selector de modo de juego');
   section.innerHTML = `
     <p class="eyebrow">Modo</p>
@@ -85,8 +182,43 @@ function ensureModeSelector() {
   levelPanel.insertBefore(section, characterSelect || document.querySelector('#levelGrid'));
 }
 
-function renderModeSelector(force = false) {
+function ensureStepStructure() {
+  injectStepperStyles();
+  ensureStepper();
   ensureModeSelector();
+
+  const characterSelect = document.querySelector('.character-select');
+  const levelGrid = document.querySelector('#levelGrid');
+
+  characterSelect?.classList.add('selection-step');
+  characterSelect?.setAttribute('data-step', 'character');
+  levelGrid?.classList.add('selection-step');
+  levelGrid?.setAttribute('data-step', 'level');
+
+  ensureStepActions();
+}
+
+function ensureStepActions() {
+  const levelPanel = document.querySelector('.level-panel');
+  const startButton = document.querySelector('#startButton');
+
+  if (!levelPanel || document.querySelector('#selectionStepActions')) return;
+
+  const actions = document.createElement('div');
+  actions.id = 'selectionStepActions';
+  actions.className = 'selection-step-actions';
+  actions.innerHTML = `
+    <button id="selectionBackButton" class="ghost-button" type="button">Volver</button>
+    <button id="selectionNextButton" class="primary-button" type="button">Continuar</button>
+  `;
+
+  levelPanel.insertBefore(actions, startButton);
+  document.querySelector('#selectionBackButton')?.addEventListener('click', () => goStep(-1));
+  document.querySelector('#selectionNextButton')?.addEventListener('click', () => goStep(1));
+}
+
+function renderModeSelector(force = false) {
+  ensureStepStructure();
 
   const grid = document.querySelector('#modeGrid');
   if (!grid) return;
@@ -135,6 +267,90 @@ function updateLevelRecordLabels() {
   });
 }
 
+function goStep(direction) {
+  const index = Math.max(0, STEPS.indexOf(currentStep));
+  const nextIndex = Math.max(0, Math.min(STEPS.length - 1, index + direction));
+  showStep(STEPS[nextIndex], true);
+}
+
+function showStep(step, focus = false) {
+  if (!STEPS.includes(step)) return;
+
+  ensureStepStructure();
+  currentStep = step;
+
+  const levelPanel = document.querySelector('.level-panel');
+  const title = levelPanel?.querySelector('h2');
+  const copy = levelPanel?.querySelector('.copy');
+  const startButton = document.querySelector('#startButton');
+  const backButton = document.querySelector('#selectionBackButton');
+  const nextButton = document.querySelector('#selectionNextButton');
+
+  const titles = {
+    mode: 'Elige modo',
+    character: 'Elige personaje',
+    level: 'Elige ruta',
+  };
+  const descriptions = {
+    mode: 'Primero selecciona cómo quieres jugar.',
+    character: 'Ahora elige con quién quieres correr.',
+    level: 'Por último, elige el nivel y empieza la partida.',
+  };
+
+  if (title) title.textContent = titles[step];
+  if (copy) copy.textContent = descriptions[step];
+
+  document.querySelectorAll('.selection-step').forEach((section) => {
+    const active = section.dataset.step === step;
+    section.hidden = !active;
+    section.toggleAttribute('inert', !active);
+    section.setAttribute('aria-hidden', String(!active));
+  });
+
+  document.querySelectorAll('[data-step-indicator]').forEach((indicator) => {
+    const active = indicator.dataset.stepIndicator === step;
+    indicator.setAttribute('aria-current', active ? 'step' : 'false');
+  });
+
+  if (backButton) backButton.hidden = step === 'mode';
+  if (nextButton) nextButton.hidden = step === 'level';
+  if (startButton) {
+    startButton.hidden = step !== 'level';
+    startButton.toggleAttribute('inert', step !== 'level');
+  }
+
+  resetStepScroll();
+
+  if (focus) {
+    focusCurrentStep();
+  }
+}
+
+function resetStepScroll() {
+  const panel = document.querySelector('.level-panel');
+  const activeStep = document.querySelector(`.selection-step[data-step="${currentStep}"]`);
+
+  if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' });
+  activeStep?.scrollTo?.({ top: 0, behavior: 'instant' });
+
+  const grid = activeStep?.matches('#levelGrid, #modeGrid, .character-select')
+    ? activeStep
+    : activeStep?.querySelector('.mode-grid, .character-grid, .level-grid');
+  grid?.scrollTo?.({ top: 0, behavior: 'instant' });
+}
+
+function focusCurrentStep() {
+  const activeStep = document.querySelector(`.selection-step[data-step="${currentStep}"]`);
+  const selected = activeStep?.querySelector('[aria-pressed="true"]');
+  const firstButton = activeStep?.querySelector('button');
+  const nextButton = document.querySelector('#selectionNextButton:not([hidden])');
+  const startButton = document.querySelector('#startButton:not([hidden])');
+
+  window.requestAnimationFrame(() => {
+    (selected || firstButton || startButton || nextButton)?.focus?.({ preventScroll: true });
+  });
+}
+
 function setupModeKeyboard() {
   document.addEventListener('keydown', (event) => {
     const grid = document.querySelector('#modeGrid');
@@ -162,24 +378,26 @@ function install() {
 
   if (menu) {
     const observer = new MutationObserver((mutations) => {
-      const shouldSync = mutations.some((mutation) => {
-        if (mutation.type === 'attributes') return true;
-        return [...mutation.addedNodes].some((node) => node instanceof HTMLElement && node.id === 'levelGrid');
-      });
+      const shouldSync = mutations.some((mutation) => mutation.type === 'attributes');
 
       if (shouldSync) {
         window.requestAnimationFrame(() => {
           renderModeSelector();
           updateLevelRecordLabels();
+
+          if (!menu.hidden && menu.classList.contains('is-visible')) {
+            showStep('mode', true);
+          }
         });
       }
     });
 
-    observer.observe(menu, { childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+    observer.observe(menu, { attributes: true, attributeFilter: ['hidden', 'class'] });
   }
 
   renderModeSelector(true);
   updateLevelRecordLabels();
+  showStep('mode');
   setupModeKeyboard();
 }
 
@@ -189,6 +407,7 @@ window.HamsterRunModes = {
   getSelectedModeId: () => selectedMode().id,
   setSelectedMode,
   refreshRecords: updateLevelRecordLabels,
+  showStep,
 };
 
 install();
