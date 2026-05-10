@@ -3,6 +3,8 @@ import '../css/main.css';
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
+import groundEnemySheet from '../assets/sprites/enemies/ground/sheet-transparent.png';
+import flyingEnemySheet from '../assets/sprites/enemies/flying/sheet-transparent.png';
 import platformWoodLong from '../assets/sprites/platforms/platform-1.png';
 import platformWoodMedium from '../assets/sprites/platforms/platform-2.png';
 import platformWoodShort from '../assets/sprites/platforms/platform-3.png';
@@ -50,14 +52,54 @@ const levels = [
     width: [185, 295],
     startVertical: 24,
     vertical: 58,
+    platformVariant: 0,
+    backgroundSet: 'meadow',
     palette: ['#91d8ea', '#bcebc7', '#f5cb6b'],
   },
   {
-    id: 'barn',
-    name: 'Granero',
-    detail: 'Más enemigos y huecos cortos',
+    id: 'clover',
+    name: 'Tréboles',
+    detail: 'Plataformas con hojas y saltos suaves',
+    tag: 'Fácil',
+    speed: 218,
+    gravity: 1810,
+    jump: 705,
+    enemyChance: 0.24,
+    startGap: [74, 118],
+    gap: [102, 164],
+    startWidth: [225, 315],
+    width: [180, 290],
+    startVertical: 26,
+    vertical: 60,
+    platformVariant: 1,
+    backgroundSet: 'meadow',
+    palette: ['#8fd2e5', '#aee9bd', '#f4d16f'],
+  },
+  {
+    id: 'bridge',
+    name: 'Puentes',
+    detail: 'Maderos cortos con más atención',
     tag: 'Medio',
-    speed: 230,
+    speed: 226,
+    gravity: 1850,
+    jump: 715,
+    enemyChance: 0.28,
+    startGap: [76, 122],
+    gap: [106, 172],
+    startWidth: [220, 305],
+    width: [175, 275],
+    startVertical: 27,
+    vertical: 64,
+    platformVariant: 2,
+    backgroundSet: 'meadow',
+    palette: ['#88cce1', '#9edba8', '#eec86a'],
+  },
+  {
+    id: 'cookie',
+    name: 'Galleta',
+    detail: 'Suelo blandito y recorrido tranquilo',
+    tag: 'Medio',
+    speed: 232,
     gravity: 1880,
     jump: 720,
     enemyChance: 0.32,
@@ -67,12 +109,33 @@ const levels = [
     width: [170, 270],
     startVertical: 28,
     vertical: 66,
+    platformVariant: 3,
+    backgroundSet: 'barn',
     palette: ['#7bc6d8', '#edc486', '#d4733e'],
   },
   {
+    id: 'straw',
+    name: 'Paja',
+    detail: 'Granero con enemigos inquietos',
+    tag: 'Medio',
+    speed: 240,
+    gravity: 1930,
+    jump: 730,
+    enemyChance: 0.36,
+    startGap: [82, 130],
+    gap: [112, 186],
+    startWidth: [215, 300],
+    width: [165, 265],
+    startVertical: 30,
+    vertical: 70,
+    platformVariant: 4,
+    backgroundSet: 'barn',
+    palette: ['#78bfd6', '#e8bd78', '#d06b3d'],
+  },
+  {
     id: 'moon',
-    name: 'Noche',
-    detail: 'Carrera rápida y plataformas tensas',
+    name: 'Setas',
+    detail: 'Noche brillante con vuelos sorpresa',
     tag: 'Difícil',
     speed: 250,
     gravity: 1980,
@@ -84,6 +147,8 @@ const levels = [
     width: [160, 255],
     startVertical: 32,
     vertical: 74,
+    platformVariant: 5,
+    backgroundSet: 'moon',
     palette: ['#6ea9c7', '#86c4a7', '#e7a947'],
   },
 ];
@@ -114,6 +179,8 @@ const sprites = {
   hamster: { image: makeImage(hamsterSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
+  groundEnemy: { image: makeImage(groundEnemySheet), cols: 4, rows: 1, cell: 168 },
+  flyingEnemy: { image: makeImage(flyingEnemySheet), cols: 4, rows: 1, cell: 168 },
   platforms: platformAssets,
   background: backgroundAssets,
   thistle: makeImage(thistleSprite),
@@ -225,9 +292,14 @@ function resetGame() {
   player.grounded = false;
 
   platforms = [
-    makePlatform(-35, floor, Math.max(340, state.width * 0.82), 0),
+    makePlatform(-35, floor, Math.max(340, state.width * 0.82), state.level.platformVariant),
     {
-      ...makePlatform(Math.max(260, state.width * 0.72), floor - 8, Math.max(260, state.width * 0.62), 1),
+      ...makePlatform(
+        Math.max(260, state.width * 0.72),
+        floor - 8,
+        Math.max(260, state.width * 0.62),
+        state.level.platformVariant,
+      ),
       starter: true,
     },
   ];
@@ -265,8 +337,8 @@ function currentDifficulty() {
 
 function createBackgroundProps() {
   const props = [];
-  const isNight = state.level.id === 'moon';
-  const candidates = isNight ? [4, 0, 1] : state.level.id === 'barn' ? [0, 3, 1, 5] : [0, 1, 2, 5];
+  const candidates =
+    state.level.backgroundSet === 'moon' ? [4, 0, 1] : state.level.backgroundSet === 'barn' ? [0, 3, 1, 5] : [0, 1, 2, 5];
   for (let index = 0; index < 14; index += 1) {
     const sprite = candidates[index % candidates.length];
     const lane = sprites.background[sprite].lane;
@@ -297,8 +369,7 @@ function spawnPlatform() {
   const rawDelta = random(-maxVertical * 0.72, maxVertical);
   const jumpFriendlyDelta = gap > 155 ? Math.max(rawDelta, -maxVertical * 0.35) : rawDelta;
   const y = previous ? clamp(previous.y + jumpFriendlyDelta, yMin, yMax) : yMax;
-  const variantPool = width > 250 ? [0, 3, 4] : width > 190 ? [1, 3, 4] : [2, 5];
-  const variant = variantPool[Math.floor(random(0, variantPool.length))];
+  const variant = level.platformVariant;
   const platform = makePlatform((previous ? previous.x + previous.width : 0) + gap, y, width, variant);
   platform.index = state.platformCount;
   state.platformCount += 1;
@@ -322,23 +393,7 @@ function spawnPlatform() {
   const freeSpace = platform.width - LANDING_ZONE * 2;
   if (Math.random() < enemyChance && freeSpace > 62) {
     const enemyX = platform.x + LANDING_ZONE + random(0, Math.max(8, freeSpace - 58));
-    if (Math.random() < 0.55) {
-      enemies.push({
-        kind: 'enemy',
-        x: enemyX,
-        y: platform.y - 42,
-        width: 48,
-        height: 39,
-      });
-    } else {
-      enemies.push({
-        kind: 'thistle',
-        x: enemyX,
-        y: platform.y - 48,
-        width: 44,
-        height: 44,
-      });
-    }
+    spawnEnemy(platform, enemyX, difficulty);
   }
 
   if (Math.random() > 0.35) {
@@ -346,6 +401,59 @@ function spawnPlatform() {
       x: platform.x + random(18, Math.max(20, platform.width - 30)),
       y: platform.y - 25,
       size: random(24, 34),
+    });
+  }
+}
+
+function spawnEnemy(platform, enemyX, difficulty) {
+  const canFly = platform.index > START_SAFE_PLATFORMS + 2 && Math.random() < 0.28 + difficulty * 0.28;
+  if (canFly) {
+    enemies.push({
+      kind: 'flying',
+      x: platform.x + platform.width + random(18, 60),
+      y: platform.y - random(105, 142),
+      baseY: platform.y - random(105, 142),
+      width: 46,
+      height: 40,
+      vx: random(28, 48) + difficulty * 18,
+      phase: random(0, Math.PI * 2),
+    });
+    return;
+  }
+
+  const roll = Math.random();
+  if (roll < 0.45) {
+    enemies.push({
+      kind: 'ground',
+      x: enemyX,
+      y: platform.y - 40,
+      width: 48,
+      height: 37,
+      platformLeft: platform.x + LANDING_ZONE,
+      platformRight: platform.x + platform.width - LANDING_ZONE - 48,
+      patrolSpeed: random(18, 32) + difficulty * 16,
+      direction: Math.random() < 0.5 ? -1 : 1,
+      phase: random(0, Math.PI * 2),
+    });
+  } else if (roll < 0.72) {
+    enemies.push({
+      kind: 'enemy',
+      x: enemyX,
+      y: platform.y - 42,
+      width: 48,
+      height: 39,
+      platformLeft: platform.x + LANDING_ZONE,
+      platformRight: platform.x + platform.width - LANDING_ZONE - 48,
+      patrolSpeed: random(14, 26) + difficulty * 12,
+      direction: Math.random() < 0.5 ? -1 : 1,
+    });
+  } else {
+    enemies.push({
+      kind: 'thistle',
+      x: enemyX,
+      y: platform.y - 48,
+      width: 44,
+      height: 44,
     });
   }
 }
@@ -382,8 +490,20 @@ function update(dt) {
   for (const group of [platforms, peanuts, enemies, decor]) {
     group.forEach((item) => {
       item.x -= move;
+      if (item.platformLeft !== undefined) {
+        item.platformLeft -= move;
+        item.platformRight -= move;
+      }
     });
   }
+  enemies.forEach((enemy) => {
+    if (enemy.kind === 'ground' || enemy.kind === 'enemy') {
+      updatePatrolEnemy(enemy, dt);
+    } else if (enemy.kind === 'flying') {
+      enemy.x -= enemy.vx * dt;
+      enemy.y = enemy.baseY + Math.sin(state.time * 4.2 + enemy.phase) * 16;
+    }
+  });
   backgroundProps.forEach((item) => {
     item.x -= move * item.speed;
     if (item.x < -item.size - 40) {
@@ -427,7 +547,7 @@ function update(dt) {
 
   platforms = platforms.filter((platform) => platform.x + platform.width > -80);
   peanuts = peanuts.filter((peanut) => peanut.x > -80 && !peanut.taken);
-  enemies = enemies.filter((enemy) => enemy.x > -90);
+  enemies = enemies.filter((enemy) => enemy.x > -100);
   decor = decor.filter((item) => item.x > -80);
 
   while (lastPlatformEnd() < state.width * 1.85) {
@@ -436,6 +556,20 @@ function update(dt) {
 
   state.score = Math.max(state.score, Math.floor(state.distance * 0.18 + state.time * 12 + state.peanuts * 75));
   updateHud();
+}
+
+function updatePatrolEnemy(enemy, dt) {
+  if (enemy.platformLeft === undefined || enemy.platformRight === undefined || enemy.platformRight <= enemy.platformLeft) {
+    return;
+  }
+  enemy.x += enemy.direction * enemy.patrolSpeed * dt;
+  if (enemy.x <= enemy.platformLeft) {
+    enemy.x = enemy.platformLeft;
+    enemy.direction = 1;
+  } else if (enemy.x >= enemy.platformRight) {
+    enemy.x = enemy.platformRight;
+    enemy.direction = -1;
+  }
 }
 
 function playerBox(padding = 0) {
@@ -457,6 +591,14 @@ function peanutBox(peanut) {
 }
 
 function enemyBox(enemy) {
+  if (enemy.kind === 'flying') {
+    return {
+      x: enemy.x + 7,
+      y: enemy.y + 7,
+      width: enemy.width - 14,
+      height: enemy.height - 13,
+    };
+  }
   return {
     x: enemy.x + 5,
     y: enemy.y + 5,
@@ -582,6 +724,18 @@ function drawPeanut(peanut) {
 function drawEnemy(enemy) {
   if (enemy.kind === 'thistle') {
     ctx.drawImage(sprites.thistle, enemy.x - 4, enemy.y - 5, enemy.width + 8, enemy.height + 8);
+    return;
+  }
+  if (enemy.kind === 'ground') {
+    const frame = Math.floor(state.time * 9 + enemy.phase) % 4;
+    const sx = frame * sprites.groundEnemy.cell;
+    drawSheetFrame(sprites.groundEnemy, sx, 0, enemy.x - 6, enemy.y - 16, enemy.width + 16, enemy.height + 28);
+    return;
+  }
+  if (enemy.kind === 'flying') {
+    const frame = Math.floor(state.time * 11 + enemy.phase) % 4;
+    const sx = frame * sprites.flyingEnemy.cell;
+    drawSheetFrame(sprites.flyingEnemy, sx, 0, enemy.x - 8, enemy.y - 10, enemy.width + 18, enemy.height + 20);
     return;
   }
   const frame = Math.floor(state.time * 9) % 4;
