@@ -49,6 +49,7 @@ function ensureModeSelector() {
   if (!levelPanel || document.querySelector('#modeSelect')) return;
 
   const section = document.createElement('div');
+  section.id = 'modeSelect';
   section.className = 'mode-select';
   section.setAttribute('aria-label', 'Selector de modo de juego');
   section.innerHTML = `
