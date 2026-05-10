@@ -78,15 +78,22 @@ let lifeGhostCanvas = null;
 let lifeGhostCtx = null;
 let lifeGhostAnimation = 0;
 let lifeGhostLast = 0;
+let lifeRespawnDelay = 0;
+let pendingRespawnPoint = null;
 
 function canStomp(enemy, previousBottom) {
   if (!enemy || enemy.kind === 'thistle') return false;
+
   const box = enemyBox(enemy);
-  const playerCenterX = player.x + player.width / 2;
-  return playerCenterX >= box.x + 4 &&
-    playerCenterX <= box.x + box.width - 4 &&
-    previousBottom <= box.y + Math.min(24, box.height * 0.55) &&
-    (player.vy >= -80 || previousBottom <= box.y + 10);
+  const playerHitbox = playerBox(8);
+  const playerBottom = player.y + player.height;
+  const horizontalOverlap = Math.min(playerHitbox.x + playerHitbox.width, box.x + box.width) - Math.max(playerHitbox.x, box.x);
+  const minRequiredOverlap = Math.min(playerHitbox.width, box.width) * 0.18;
+  const wasAboveEnemy = previousBottom <= box.y + Math.max(18, box.height * 0.48);
+  const stillInTopZone = playerBottom <= box.y + box.height * 0.78;
+  const fallingOrAlmostFalling = player.vy >= -120;
+
+  return horizontalOverlap >= minRequiredOverlap && wasAboveEnemy && stillInTopZone && fallingOrAlmostFalling;
 }
 
 function stompEnemy(enemy) {
@@ -101,15 +108,37 @@ function stompEnemy(enemy) {
 }
 
 function loseLife() {
-  if (state.mode !== 'running' || state.invincible > 0) return;
+  if (state.mode !== 'running' || state.invincible > 0 || lifeRespawnDelay > 0) return;
+
+  pendingRespawnPoint = findSafeRespawnPoint();
   spawnLifeGhost();
   state.lives = Math.max(0, state.lives - 1);
-  state.invincible = 2.65;
+  state.invincible = 2.9;
   state.shake = Math.max(state.shake, 2.2);
   updateHud();
   bursts.push({ x: clamp(player.x + player.width / 2, 20, state.width - 20), y: clamp(player.y + player.height / 2, 70, state.height - 90), ttl: 0.72, life: 0.72, radius: 28, color: 'rgba(255, 65, 85, 0.74)' });
-  if (state.lives <= 0) { endGame(); return; }
-  respawnPlayerAfterLifeLoss();
+
+  if (state.lives <= 0) {
+    endGame();
+    return;
+  }
+
+  lifeRespawnDelay = 0.95;
+  player.y = state.height + 520;
+  player.vy = 0;
+  player.grounded = false;
+}
+
+function findSafeRespawnPoint() {
+  const safePlatform = platforms.find((platform) => platform.x <= player.x && platform.x + platform.width >= player.x + player.width) ||
+    platforms.find((platform) => platform.x + platform.width > player.x + player.width) || platforms[0];
+
+  if (!safePlatform) return null;
+
+  return {
+    x: clamp(player.x, safePlatform.x + 30, safePlatform.x + safePlatform.width - player.width - 30),
+    y: safePlatform.y - player.height - 18,
+  };
 }
 
 function spawnLifeGhost() {
@@ -135,14 +164,7 @@ function ensureLifeGhostLayer() {
   if (!lifeGhostCanvas) {
     lifeGhostCanvas = document.createElement('canvas');
     lifeGhostCanvas.id = 'lifeGhostLayer';
-    Object.assign(lifeGhostCanvas.style, {
-      position: 'fixed',
-      inset: '0',
-      width: '100vw',
-      height: '100dvh',
-      pointerEvents: 'none',
-      zIndex: '12',
-    });
+    Object.assign(lifeGhostCanvas.style, { position: 'fixed', inset: '0', width: '100vw', height: '100dvh', pointerEvents: 'none', zIndex: '12' });
     document.body.append(lifeGhostCanvas);
     lifeGhostCtx = lifeGhostCanvas.getContext('2d');
   }
@@ -214,24 +236,46 @@ function drawLifeGhost(ghost) {
 }
 
 function respawnPlayerAfterLifeLoss() {
-  const safePlatform = platforms.find((platform) => platform.x <= player.x && platform.x + platform.width >= player.x + player.width) ||
-    platforms.find((platform) => platform.x + platform.width > player.x + player.width) || platforms[0];
-  if (!safePlatform) { endGame(); return; }
-  player.x = clamp(player.x, safePlatform.x + 30, safePlatform.x + safePlatform.width - player.width - 30);
-  player.y = safePlatform.y - player.height - 18;
+  const point = pendingRespawnPoint || findSafeRespawnPoint();
+  pendingRespawnPoint = null;
+
+  if (!point) {
+    endGame();
+    return;
+  }
+
+  player.x = point.x;
+  player.y = point.y;
   player.vy = 0;
   player.jumps = 0;
   player.grounded = true;
+
   const dangerPadding = 155;
   enemies = enemies.filter((enemy) => {
     const enemyCenter = enemy.x + enemy.width / 2;
     return enemyCenter < player.x - dangerPadding || enemyCenter > player.x + player.width + dangerPadding;
   });
+
   bursts.push({ x: player.x + player.width / 2, y: player.y + player.height / 2, ttl: 0.95, life: 0.95, radius: 18, color: 'rgba(255, 91, 91, 0.54)' });
 }
 
 const originalUpdate = update;
 update = function updateWithLifePatches(dt) {
+  if (lifeRespawnDelay > 0) {
+    lifeRespawnDelay = Math.max(0, lifeRespawnDelay - dt);
+    state.time += dt;
+    state.invincible = Math.max(state.invincible, 1.45);
+    state.shake = Math.max(0, state.shake - dt * 18);
+
+    if (lifeRespawnDelay === 0) {
+      respawnPlayerAfterLifeLoss();
+    }
+
+    cleanupLongRunEntities();
+    updatePerfProbe(dt);
+    return;
+  }
+
   originalUpdate(dt);
   cleanupLongRunEntities();
   updatePerfProbe(dt);
@@ -285,7 +329,7 @@ function setupMobileSafeControls() {
     lastTouchEnd = now;
   }, { passive: false });
   canvas.addEventListener('pointerdown', (event) => {
-    if (event.target.closest?.(interactiveSelector) || state.mode !== 'running') return;
+    if (event.target.closest?.(interactiveSelector) || state.mode !== 'running' || lifeRespawnDelay > 0) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     canvas.setPointerCapture?.(event.pointerId);
