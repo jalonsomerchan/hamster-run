@@ -185,10 +185,12 @@ button {
   gap: 12px;
 }
 
+.mode-select,
 .character-select {
   margin-top: 16px;
 }
 
+.mode-grid,
 .character-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -196,6 +198,7 @@ button {
   margin-top: 8px;
 }
 
+.mode-card,
 .character-card {
   min-width: 0;
   border: 2px solid #d7ad63;
@@ -206,9 +209,40 @@ button {
   text-align: center;
 }
 
+.mode-card[aria-pressed='true'],
 .character-card[aria-pressed='true'] {
   border-color: #5f8f43;
   background: #d9f0a7;
+}
+
+.mode-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+  align-content: space-between;
+  text-align: left;
+}
+
+.mode-card strong {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 950;
+}
+
+.mode-card span {
+  color: #74532b;
+  font-size: 0.72rem;
+  font-weight: 720;
+  line-height: 1.18;
+}
+
+.mode-card b {
+  width: fit-content;
+  border-radius: 999px;
+  background: rgba(56, 40, 22, 0.1);
+  color: #4b3418;
+  padding: 5px 8px;
+  font-size: 0.68rem;
 }
 
 .character-card canvas {
