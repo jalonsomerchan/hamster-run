@@ -63,6 +63,14 @@ function inlineImports(source) {
     });
 }
 
+function avoidFunctionNameCollisions(source) {
+  return source
+    .replace(/function\s+canStomp\s*\(/g, 'function originalCanStomp(')
+    .replace(/function\s+stompEnemy\s*\(/g, 'function originalStompEnemy(')
+    .replace(/function\s+loseLife\s*\(/g, 'function originalLoseLife(')
+    .replace(/function\s+respawnPlayerAfterLifeLoss\s*\(/g, 'function originalRespawnPlayerAfterLifeLoss(');
+}
+
 function injectDrawFeedback(source) {
   return source.replace(
     /(function\s+drawPlayer\s*\([^)]*\)\s*{)/,
@@ -80,7 +88,7 @@ function injectDrawFeedback(source) {
 }
 
 function patchLifeSystem(source) {
-  let patched = injectDrawFeedback(source);
+  let patched = injectDrawFeedback(avoidFunctionNameCollisions(source));
 
   if (!/function\s+itemBox\s*\(/.test(patched)) {
     patched += `
@@ -105,7 +113,6 @@ function canStomp(enemy, previousBottom) {
   }
 
   const box = enemyBox(enemy);
-  const playerBottom = player.y + player.height;
   const playerCenterX = player.x + player.width / 2;
   const enemyLeft = box.x + 4;
   const enemyRight = box.x + box.width - 4;
