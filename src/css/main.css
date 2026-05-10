@@ -265,8 +265,10 @@ h2 {
 
 .life-hearts {
   min-height: 22px;
-  background-repeat: repeat-x;
-  background-size: 22px 22px;
+  color: #e43f4f;
+  font-size: clamp(1rem, 4vw, 1.35rem);
+  letter-spacing: -0.08em;
+  text-shadow: 0 1px 0 #fff8df, 0 2px 4px rgba(91, 19, 27, 0.22);
 }
 
 .level-card {
