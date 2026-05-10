@@ -1,12 +1,13 @@
 {
-  "name": "js-template",
+  "name": "hamster-run",
   "version": "1.0.0",
-  "description": "Template moderno para proyectos HTML, CSS y JavaScript con Tailwind CSS.",
+  "description": "Endless runner móvil hecho con HTML, Canvas y JavaScript.",
   "type": "module",
   "private": false,
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy:preview": "vite build && vite preview",
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier . --write",
