@@ -23,18 +23,36 @@ import grassSprite from '../assets/sprites/environment/environment-4.png';
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
 
+const hud = document.querySelector('.hud');
+const gameControls = document.querySelector('.game-controls');
 const scoreEl = document.querySelector('#score');
 const peanutsEl = document.querySelector('#peanuts');
 const timeEl = document.querySelector('#time');
 const menu = document.querySelector('#menu');
+const home = document.querySelector('#home');
+const pauseMenu = document.querySelector('#pauseMenu');
 const gameOver = document.querySelector('#gameOver');
+const heroPreview = document.querySelector('#heroPreview');
+const heroCtx = heroPreview.getContext('2d');
 const levelGrid = document.querySelector('#levelGrid');
+const newGameButton = document.querySelector('#newGameButton');
+const aboutButton = document.querySelector('#aboutButton');
+const shareButton = document.querySelector('#shareButton');
 const startButton = document.querySelector('#startButton');
+const backHomeButton = document.querySelector('#backHomeButton');
+const pauseButton = document.querySelector('#pauseButton');
+const gameMenuButton = document.querySelector('#gameMenuButton');
+const resumeButton = document.querySelector('#resumeButton');
+const pauseLevelsButton = document.querySelector('#pauseLevelsButton');
+const pauseHomeButton = document.querySelector('#pauseHomeButton');
 const retryButton = document.querySelector('#retryButton');
 const levelsButton = document.querySelector('#levelsButton');
 const finalScore = document.querySelector('#finalScore');
 const finalPeanuts = document.querySelector('#finalPeanuts');
 const finalTime = document.querySelector('#finalTime');
+const finalRecord = document.querySelector('#finalRecord');
+
+const RECORD_KEY = 'hamster-run-records-v1';
 
 const levels = [
   {
@@ -48,8 +66,8 @@ const levels = [
     enemyChance: 0.22,
     startGap: [70, 116],
     gap: [98, 160],
-    startWidth: [230, 320],
-    width: [185, 295],
+    startWidth: [260, 360],
+    width: [175, 360],
     startVertical: 24,
     vertical: 58,
     platformVariant: 0,
@@ -67,8 +85,8 @@ const levels = [
     enemyChance: 0.24,
     startGap: [74, 118],
     gap: [102, 164],
-    startWidth: [225, 315],
-    width: [180, 290],
+    startWidth: [250, 350],
+    width: [170, 345],
     startVertical: 26,
     vertical: 60,
     platformVariant: 1,
@@ -86,8 +104,8 @@ const levels = [
     enemyChance: 0.28,
     startGap: [76, 122],
     gap: [106, 172],
-    startWidth: [220, 305],
-    width: [175, 275],
+    startWidth: [235, 325],
+    width: [150, 310],
     startVertical: 27,
     vertical: 64,
     platformVariant: 2,
@@ -105,8 +123,8 @@ const levels = [
     enemyChance: 0.32,
     startGap: [78, 126],
     gap: [108, 178],
-    startWidth: [220, 310],
-    width: [170, 270],
+    startWidth: [245, 340],
+    width: [165, 335],
     startVertical: 28,
     vertical: 66,
     platformVariant: 3,
@@ -124,8 +142,8 @@ const levels = [
     enemyChance: 0.36,
     startGap: [82, 130],
     gap: [112, 186],
-    startWidth: [215, 300],
-    width: [165, 265],
+    startWidth: [240, 330],
+    width: [160, 330],
     startVertical: 30,
     vertical: 70,
     platformVariant: 4,
@@ -143,8 +161,8 @@ const levels = [
     enemyChance: 0.42,
     startGap: [84, 134],
     gap: [118, 195],
-    startWidth: [210, 300],
-    width: [160, 255],
+    startWidth: [225, 315],
+    width: [145, 300],
     startVertical: 32,
     vertical: 74,
     platformVariant: 5,
@@ -158,13 +176,40 @@ const LANDING_ZONE = 78;
 const START_SAFE_PLATFORMS = 7;
 
 const platformAssets = [
-  { image: makeImage(platformWoodLong), crop: [8, 90, 240, 75], minWidth: 240 },
-  { image: makeImage(platformWoodMedium), crop: [30, 88, 195, 80], minWidth: 205 },
-  { image: makeImage(platformWoodShort), crop: [53, 94, 150, 68], minWidth: 120 },
-  { image: makeImage(platformDirt), crop: [14, 86, 227, 83], minWidth: 220 },
-  { image: makeImage(platformStraw), crop: [21, 90, 214, 76], minWidth: 220 },
-  { image: makeImage(platformMushroom), crop: [48, 92, 160, 71], minWidth: 120 },
+  { image: makeImage(platformWoodLong), crop: [10, 91, 238, 73], cap: 52, minWidth: 170 },
+  { image: makeImage(platformWoodMedium), crop: [31, 90, 194, 76], cap: 46, minWidth: 160 },
+  { image: makeImage(platformWoodShort), crop: [54, 95, 148, 66], cap: 38, minWidth: 132 },
+  { image: makeImage(platformDirt), crop: [15, 88, 226, 79], cap: 50, minWidth: 170 },
+  { image: makeImage(platformStraw), crop: [23, 91, 212, 74], cap: 50, minWidth: 168 },
+  { image: makeImage(platformMushroom), crop: [49, 93, 158, 69], cap: 42, minWidth: 138 },
 ];
+
+const backgroundThemes = {
+  meadow: {
+    skyTop: '#7fd2ee',
+    skyBottom: '#b7edc8',
+    farHill: '#7ec98f',
+    nearHill: '#4fa96f',
+    ground: '#7ab565',
+    props: [0, 1, 2],
+  },
+  barn: {
+    skyTop: '#78c6df',
+    skyBottom: '#f0cc8c',
+    farHill: '#d7b16b',
+    nearHill: '#9bbb68',
+    ground: '#c7924e',
+    props: [0, 3, 5],
+  },
+  moon: {
+    skyTop: '#556fa7',
+    skyBottom: '#77b6c9',
+    farHill: '#668f8f',
+    nearHill: '#5e9b75',
+    ground: '#6d9a66',
+    props: [4, 0, 1],
+  },
+};
 
 const backgroundAssets = [
   { image: makeImage(cloudSprite), crop: [27, 64, 202, 128], lane: 'sky' },
@@ -219,6 +264,7 @@ let peanuts = [];
 let enemies = [];
 let decor = [];
 let backgroundProps = [];
+let bursts = [];
 
 function makeImage(src) {
   const image = new Image();
@@ -242,6 +288,24 @@ function lerpRange(startRange, endRange, amount) {
   return [lerp(startRange[0], endRange[0], amount), lerp(startRange[1], endRange[1], amount)];
 }
 
+function readRecords() {
+  try {
+    const raw = localStorage.getItem(RECORD_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveRecord(levelId, score) {
+  const records = readRecords();
+  const previous = records[levelId] || 0;
+  const next = Math.max(previous, Math.floor(score));
+  records[levelId] = next;
+  localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+  return { previous, next, improved: next > previous };
+}
+
 function resize() {
   state.dpr = Math.min(window.devicePixelRatio || 1, 2);
   state.width = window.innerWidth;
@@ -254,14 +318,16 @@ function resize() {
 }
 
 function buildLevelMenu() {
+  const records = readRecords();
   levelGrid.innerHTML = '';
   levels.forEach((level, index) => {
+    const record = records[level.id] || 0;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'level-card';
     button.setAttribute('aria-pressed', String(index === state.selectedLevel));
     button.innerHTML = `
-      <span><strong>${level.name}</strong>${level.detail}</span>
+      <span><strong>${level.name}</strong>${level.detail}<small>Récord: ${record}</small></span>
       <b>${level.tag}</b>
     `;
     button.addEventListener('click', () => {
@@ -307,13 +373,17 @@ function resetGame() {
   peanuts = [];
   enemies = [];
   decor = [];
+  bursts = [];
   backgroundProps = createBackgroundProps();
   while (lastPlatformEnd() < state.width * 1.8) {
     spawnPlatform();
   }
 
   menu.classList.remove('is-visible');
+  home.classList.remove('is-visible');
+  pauseMenu.classList.remove('is-visible');
   gameOver.classList.remove('is-visible');
+  syncGameChrome();
   updateHud();
 }
 
@@ -337,16 +407,17 @@ function currentDifficulty() {
 
 function createBackgroundProps() {
   const props = [];
-  const candidates =
-    state.level.backgroundSet === 'moon' ? [4, 0, 1] : state.level.backgroundSet === 'barn' ? [0, 3, 1, 5] : [0, 1, 2, 5];
-  for (let index = 0; index < 14; index += 1) {
+  const theme = backgroundThemes[state.level.backgroundSet] || backgroundThemes.meadow;
+  const candidates = theme.props;
+  for (let index = 0; index < 12; index += 1) {
     const sprite = candidates[index % candidates.length];
     const lane = sprites.background[sprite].lane;
+    const spacing = lane === 'sky' ? random(210, 310) : random(240, 360);
     props.push({
       sprite,
       lane,
-      x: index * random(170, 255) + random(20, 110),
-      size: lane === 'sky' ? random(78, 128) : lane === 'horizon' ? random(86, 138) : random(96, 160),
+      x: index * spacing + random(20, 130),
+      size: lane === 'sky' ? random(74, 120) : lane === 'horizon' ? random(88, 135) : random(105, 160),
       speed: lane === 'sky' ? random(0.06, 0.12) : lane === 'horizon' ? random(0.16, 0.23) : random(0.25, 0.34),
     });
   }
@@ -362,7 +433,7 @@ function spawnPlatform() {
   const maxVertical = lerp(level.startVertical, level.vertical, difficulty);
   const gap = random(gapRange[0], Math.min(gapRange[1], state.width * 0.43));
   const minWidth = Math.max(widthRange[0], LANDING_ZONE * 2 + player.width);
-  const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 20), state.width * 0.86);
+  const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 28), state.width * 0.94);
   const width = random(minWidth, maxWidth);
   const yMin = state.height * 0.47;
   const yMax = state.height * 0.76;
@@ -470,6 +541,66 @@ function jump() {
   player.grounded = false;
 }
 
+function showHome() {
+  state.mode = 'home';
+  home.classList.add('is-visible');
+  menu.classList.remove('is-visible');
+  pauseMenu.classList.remove('is-visible');
+  gameOver.classList.remove('is-visible');
+  syncGameChrome();
+}
+
+function showLevelSelect() {
+  state.mode = 'menu';
+  buildLevelMenu();
+  home.classList.remove('is-visible');
+  menu.classList.add('is-visible');
+  pauseMenu.classList.remove('is-visible');
+  gameOver.classList.remove('is-visible');
+  syncGameChrome();
+}
+
+function pauseGame() {
+  if (state.mode !== 'running') {
+    return;
+  }
+  state.mode = 'paused';
+  pauseMenu.classList.add('is-visible');
+  syncGameChrome();
+}
+
+function resumeGame() {
+  if (state.mode !== 'paused') {
+    return;
+  }
+  state.mode = 'running';
+  pauseMenu.classList.remove('is-visible');
+  syncGameChrome();
+}
+
+function syncGameChrome() {
+  const inGame = state.mode === 'running' || state.mode === 'paused';
+  hud.hidden = !inGame;
+  gameControls.hidden = !inGame;
+}
+
+async function shareGame() {
+  const shareData = {
+    title: 'Hamster Run',
+    text: 'Juega a Hamster Run y atrapa cacahuetes sin caerte.',
+    url: window.location.href,
+  };
+  if (navigator.share) {
+    await navigator.share(shareData);
+    return;
+  }
+  await navigator.clipboard?.writeText(window.location.href);
+  shareButton.textContent = 'Enlace copiado';
+  window.setTimeout(() => {
+    shareButton.textContent = 'Compartir juego';
+  }, 1400);
+}
+
 function update(dt) {
   if (state.mode !== 'running') {
     return;
@@ -487,7 +618,7 @@ function update(dt) {
   player.y += player.vy * dt;
   player.grounded = false;
 
-  for (const group of [platforms, peanuts, enemies, decor]) {
+  for (const group of [platforms, peanuts, enemies, decor, bursts]) {
     group.forEach((item) => {
       item.x -= move;
       if (item.platformLeft !== undefined) {
@@ -509,6 +640,11 @@ function update(dt) {
     if (item.x < -item.size - 40) {
       item.x = state.width + random(60, 220);
     }
+  });
+  bursts.forEach((burst) => {
+    burst.life -= dt;
+    burst.y -= 42 * dt;
+    burst.scale += 1.8 * dt;
   });
 
   for (const platform of platforms) {
@@ -536,8 +672,12 @@ function update(dt) {
   }
 
   for (const enemy of enemies) {
-    if (intersects(playerBox(9), enemyBox(enemy))) {
-      endGame();
+    if (!enemy.defeated && intersects(playerBox(9), enemyBox(enemy))) {
+      if (canStomp(enemy, previousBottom)) {
+        stompEnemy(enemy);
+      } else {
+        endGame();
+      }
     }
   }
 
@@ -547,8 +687,9 @@ function update(dt) {
 
   platforms = platforms.filter((platform) => platform.x + platform.width > -80);
   peanuts = peanuts.filter((peanut) => peanut.x > -80 && !peanut.taken);
-  enemies = enemies.filter((enemy) => enemy.x > -100);
+  enemies = enemies.filter((enemy) => enemy.x > -100 && !enemy.defeated);
   decor = decor.filter((item) => item.x > -80);
+  bursts = bursts.filter((burst) => burst.life > 0);
 
   while (lastPlatformEnd() < state.width * 1.85) {
     spawnPlatform();
@@ -570,6 +711,27 @@ function updatePatrolEnemy(enemy, dt) {
     enemy.x = enemy.platformRight;
     enemy.direction = -1;
   }
+}
+
+function canStomp(enemy, previousBottom) {
+  if (enemy.kind !== 'ground' && enemy.kind !== 'enemy') {
+    return false;
+  }
+  const box = enemyBox(enemy);
+  return player.vy > 0 && previousBottom <= box.y + 14 && player.y + player.height <= box.y + box.height * 0.65;
+}
+
+function stompEnemy(enemy) {
+  enemy.defeated = true;
+  player.vy = -state.level.jump * 0.58;
+  player.jumps = 1;
+  state.score += 130;
+  bursts.push({
+    x: enemy.x + enemy.width / 2,
+    y: enemy.y + enemy.height / 2,
+    life: 0.34,
+    scale: 0.65,
+  });
 }
 
 function playerBox(padding = 0) {
@@ -617,10 +779,14 @@ function endGame() {
   }
   state.mode = 'over';
   state.shake = 4;
+  const record = saveRecord(state.level.id, state.score);
   finalScore.textContent = String(Math.floor(state.score));
   finalPeanuts.textContent = String(state.peanuts);
   finalTime.textContent = `${Math.floor(state.time)}s`;
+  finalRecord.textContent = record.improved ? `Nuevo ${record.next}` : String(record.next);
+  buildLevelMenu();
   gameOver.classList.add('is-visible');
+  syncGameChrome();
 }
 
 function updateHud() {
@@ -647,29 +813,39 @@ function draw() {
   platforms.forEach(drawPlatform);
   peanuts.forEach(drawPeanut);
   enemies.forEach(drawEnemy);
+  bursts.forEach(drawBurst);
   drawHamster();
 
   ctx.restore();
+  drawHeroPreview();
 }
 
 function drawBackground(hill, sun) {
+  const theme = backgroundThemes[state.level.backgroundSet] || backgroundThemes.meadow;
   const horizon = state.height * 0.62;
+  const skyGradient = ctx.createLinearGradient(0, 0, 0, state.height);
+  skyGradient.addColorStop(0, theme.skyTop);
+  skyGradient.addColorStop(0.62, theme.skyBottom);
+  skyGradient.addColorStop(1, theme.ground);
+  ctx.fillStyle = skyGradient;
+  ctx.fillRect(0, 0, state.width, state.height);
+
   ctx.fillStyle = 'rgba(255, 248, 223, 0.58)';
   ctx.beginPath();
   ctx.arc(state.width * 0.82, state.height * 0.16, 34, 0, Math.PI * 2);
   ctx.fill();
 
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < 3; i += 1) {
     const offset = ((state.distance * (0.05 + i * 0.025)) % state.width) * -1;
-    ctx.fillStyle = i % 2 === 0 ? hill : '#5ba775';
+    ctx.fillStyle = i === 0 ? theme.farHill : i === 1 ? hill : theme.nearHill;
     ctx.beginPath();
     ctx.moveTo(offset - state.width, state.height);
     for (let x = offset - state.width; x <= state.width * 2; x += 90) {
-      ctx.quadraticCurveTo(x + 45, horizon - i * 32 - 28, x + 90, horizon - i * 18);
+      ctx.quadraticCurveTo(x + 45, horizon - i * 28 - 26, x + 90, horizon - i * 18);
     }
     ctx.lineTo(state.width * 2, state.height);
     ctx.closePath();
-    ctx.globalAlpha = 0.32 + i * 0.08;
+    ctx.globalAlpha = 0.34 + i * 0.1;
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -677,7 +853,7 @@ function drawBackground(hill, sun) {
   ctx.fillStyle = sun;
   for (let i = 0; i < 18; i += 1) {
     const x = (i * 91 - (state.distance * 0.22) % 91) % (state.width + 120);
-    ctx.fillRect(x - 20, state.height - 18, 52, 18);
+    ctx.fillRect(x - 20, state.height - 18, 54, 18);
   }
 
   backgroundProps.forEach((item) => {
@@ -707,10 +883,39 @@ function drawPlatform(platform) {
   const asset = sprites.platforms[platform.variant % sprites.platforms.length];
   const [sx, sy, sw, sh] = asset.crop;
   const visualWidth = Math.max(platform.width + 18, asset.minWidth);
-  const visualHeight = clamp(visualWidth * (sh / sw), 48, 72);
+  const visualHeight = clamp(asset.minWidth * (sh / sw), 50, 76);
   const x = platform.x - (visualWidth - platform.width) / 2;
   const y = platform.y - 13;
-  ctx.drawImage(asset.image, sx, sy, sw, sh, x, y, visualWidth, visualHeight);
+  drawStretchPlatform(asset.image, sx, sy, sw, sh, x, y, visualWidth, visualHeight, asset.cap);
+}
+
+function drawStretchPlatform(image, sx, sy, sw, sh, dx, dy, dw, dh, cap) {
+  const sourceCap = Math.min(cap, Math.floor(sw * 0.35));
+  const destCap = Math.min(Math.round(sourceCap * (dh / sh)), Math.floor(dw * 0.42));
+  const sourceCenterWidth = Math.max(1, sw - sourceCap * 2);
+  const destCenterWidth = Math.max(1, dw - destCap * 2);
+
+  ctx.drawImage(image, sx, sy, sourceCap, sh, dx, dy, destCap, dh);
+  ctx.drawImage(
+    image,
+    sx + sourceCap,
+    sy,
+    sourceCenterWidth,
+    sh,
+    dx + destCap,
+    dy,
+    destCenterWidth,
+    dh,
+  );
+  drawMirroredSlice(image, sx, sy, sourceCap, sh, dx + destCap + destCenterWidth, dy, destCap, dh);
+}
+
+function drawMirroredSlice(image, sx, sy, sw, sh, dx, dy, dw, dh) {
+  ctx.save();
+  ctx.translate(dx + dw, dy);
+  ctx.scale(-1, 1);
+  ctx.drawImage(image, sx, sy, sw, sh, 0, 0, dw, dh);
+  ctx.restore();
 }
 
 function drawPeanut(peanut) {
@@ -743,6 +948,25 @@ function drawEnemy(enemy) {
   drawSheetFrame(sprites.enemy, sx, 0, enemy.x - 5, enemy.y - 14, enemy.width + 18, enemy.height + 26);
 }
 
+function drawBurst(burst) {
+  const progress = 1 - burst.life / 0.34;
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, 1 - progress);
+  ctx.translate(burst.x, burst.y);
+  ctx.scale(burst.scale, burst.scale);
+  ctx.fillStyle = '#fff2c8';
+  ctx.beginPath();
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (Math.PI * 2 * index) / 8;
+    ctx.moveTo(Math.cos(angle) * 8, Math.sin(angle) * 8);
+    ctx.lineTo(Math.cos(angle) * 20, Math.sin(angle) * 20);
+  }
+  ctx.strokeStyle = '#e66b2f';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawHamster() {
   const frame = player.grounded ? Math.floor(state.time * 12) % 4 : player.vy < 0 ? 3 : 1;
   const sx = frame * sprites.hamster.cell;
@@ -758,6 +982,25 @@ function drawHamster() {
   );
 }
 
+function drawHeroPreview() {
+  if (!home.classList.contains('is-visible')) {
+    return;
+  }
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const rect = heroPreview.getBoundingClientRect();
+  const width = Math.max(1, Math.floor(rect.width * dpr));
+  const height = Math.max(1, Math.floor(rect.height * dpr));
+  if (heroPreview.width !== width || heroPreview.height !== height) {
+    heroPreview.width = width;
+    heroPreview.height = height;
+  }
+  heroCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  heroCtx.clearRect(0, 0, rect.width, rect.height);
+  const frame = Math.floor(performance.now() / 95) % 4;
+  const sx = frame * sprites.hamster.cell;
+  heroCtx.drawImage(sprites.hamster.image, sx, 0, sprites.hamster.cell, sprites.hamster.cell, rect.width * 0.18, 8, rect.width * 0.64, rect.height * 0.88);
+}
+
 function drawSheetFrame(sprite, sx, sy, x, y, width, height) {
   ctx.drawImage(sprite.image, sx, sy, sprite.cell, sprite.cell, x, y, width, height);
 }
@@ -768,12 +1011,6 @@ function loop(now) {
   update(dt);
   draw();
   requestAnimationFrame(loop);
-}
-
-function showMenu() {
-  state.mode = 'menu';
-  gameOver.classList.remove('is-visible');
-  menu.classList.add('is-visible');
 }
 
 window.addEventListener('resize', resize);
@@ -799,10 +1036,29 @@ window.addEventListener('keydown', (event) => {
 });
 
 startButton.addEventListener('click', resetGame);
+newGameButton.addEventListener('click', showLevelSelect);
+backHomeButton.addEventListener('click', showHome);
+aboutButton.addEventListener('click', () => {
+  window.alert('Hamster Run: salta, haz doble salto, recoge cacahuetes y pisa enemigos de tierra para ganar puntos extra.');
+});
+shareButton.addEventListener('click', () => {
+  shareGame().catch(() => {
+    shareButton.textContent = 'No se pudo compartir';
+    window.setTimeout(() => {
+      shareButton.textContent = 'Compartir juego';
+    }, 1400);
+  });
+});
+pauseButton.addEventListener('click', pauseGame);
+gameMenuButton.addEventListener('click', showLevelSelect);
+resumeButton.addEventListener('click', resumeGame);
+pauseLevelsButton.addEventListener('click', showLevelSelect);
+pauseHomeButton.addEventListener('click', showHome);
 retryButton.addEventListener('click', resetGame);
-levelsButton.addEventListener('click', showMenu);
+levelsButton.addEventListener('click', showLevelSelect);
 
 resize();
 buildLevelMenu();
-showMenu();
+showHome();
+syncGameChrome();
 requestAnimationFrame(loop);

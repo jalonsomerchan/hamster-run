@@ -61,6 +61,26 @@ button {
   pointer-events: none;
 }
 
+.game-controls {
+  position: fixed;
+  right: 12px;
+  bottom: max(12px, env(safe-area-inset-bottom));
+  z-index: 6;
+  display: flex;
+  gap: 8px;
+}
+
+.game-controls button {
+  min-width: 58px;
+  border: 2px solid rgba(57, 35, 20, 0.22);
+  border-radius: 8px;
+  background: rgba(255, 248, 223, 0.88);
+  color: #3d2c17;
+  font-size: 0.78rem;
+  font-weight: 950;
+  padding: 9px 10px;
+}
+
 .hud div,
 .result-grid div {
   min-width: 0;
@@ -119,12 +139,36 @@ button {
 
 .panel {
   width: min(100%, 460px);
+  max-height: calc(100dvh - 36px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow: auto;
+  overscroll-behavior: contain;
   border: 3px solid rgba(74, 48, 26, 0.28);
   border-radius: 8px;
   background: #fff2c8;
   box-shadow: 0 28px 70px rgba(12, 18, 14, 0.36);
   color: #3d2c17;
   padding: 22px;
+}
+
+.home-panel {
+  text-align: center;
+}
+
+.level-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+#heroPreview {
+  display: block;
+  width: min(72vw, 300px);
+  height: 150px;
+  margin: 14px auto 18px;
+}
+
+.menu-actions {
+  display: grid;
+  gap: 12px;
 }
 
 .eyebrow {
@@ -167,6 +211,10 @@ h2 {
   display: grid;
   gap: 9px;
   margin: 18px 0;
+  max-height: min(46dvh, 430px);
+  overflow-y: auto;
+  padding-right: 3px;
+  overscroll-behavior: contain;
 }
 
 .level-card {
@@ -204,6 +252,14 @@ h2 {
   line-height: 1.25;
 }
 
+.level-card small {
+  display: block;
+  margin-top: 6px;
+  color: #8f6129;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
 .level-card b {
   border-radius: 999px;
   background: rgba(56, 40, 22, 0.1);
@@ -235,9 +291,13 @@ h2 {
   color: #4c351b;
 }
 
+.menu-actions .ghost-button {
+  margin-top: 0;
+}
+
 .result-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
   margin: 20px 0;
 }

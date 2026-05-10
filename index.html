@@ -30,12 +30,29 @@
         </div>
       </section>
 
+      <section class="game-controls" aria-label="Controles del juego">
+        <button id="pauseButton" type="button">Pausa</button>
+        <button id="gameMenuButton" type="button">Menú</button>
+      </section>
+
       <canvas id="game" aria-label="Hamster Run"></canvas>
 
-      <section id="menu" class="overlay is-visible" aria-label="Menú de nivel">
-        <div class="panel">
-          <p class="eyebrow">Endless Runner</p>
+      <section id="home" class="overlay is-visible" aria-label="Inicio">
+        <div class="panel home-panel">
           <h1>Hamster Run</h1>
+          <canvas id="heroPreview" aria-hidden="true"></canvas>
+          <div class="menu-actions">
+            <button id="newGameButton" class="primary-button" type="button">Nueva partida</button>
+            <button id="aboutButton" class="ghost-button" type="button">Acerca de</button>
+            <button id="shareButton" class="ghost-button" type="button">Compartir juego</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="menu" class="overlay" aria-label="Selector de nivel">
+        <div class="panel level-panel">
+          <p class="eyebrow">Selector de nivel</p>
+          <h2>Elige ruta</h2>
           <p class="copy">
             Atrapa cacahuetes, evita enemigos y no te caigas entre plataformas.
           </p>
@@ -43,7 +60,18 @@
           <div class="level-grid" id="levelGrid"></div>
 
           <button id="startButton" class="primary-button" type="button">Jugar</button>
+          <button id="backHomeButton" class="ghost-button" type="button">Inicio</button>
           <p class="hint">Toca la pantalla para saltar. Toca otra vez en el aire para doble salto.</p>
+        </div>
+      </section>
+
+      <section id="pauseMenu" class="overlay" aria-label="Pausa">
+        <div class="panel">
+          <p class="eyebrow">Pausa</p>
+          <h2>Descanso</h2>
+          <button id="resumeButton" class="primary-button" type="button">Continuar</button>
+          <button id="pauseLevelsButton" class="ghost-button" type="button">Cambiar nivel</button>
+          <button id="pauseHomeButton" class="ghost-button" type="button">Inicio</button>
         </div>
       </section>
 
@@ -63,6 +91,10 @@
             <div>
               <span>Tiempo</span>
               <strong id="finalTime">0s</strong>
+            </div>
+            <div>
+              <span>Récord</span>
+              <strong id="finalRecord">0</strong>
             </div>
           </div>
           <button id="retryButton" class="primary-button" type="button">Reintentar</button>
