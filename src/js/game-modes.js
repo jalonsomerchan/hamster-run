@@ -35,6 +35,7 @@ const modes = [
 let selectedModeId = localStorage.getItem(MODE_KEY) || 'endless';
 let modeSelectorRenderedFor = '';
 let currentStep = 'mode';
+let menuWasVisible = false;
 
 function selectedMode() {
   return modes.find((mode) => mode.id === selectedModeId) || modes[0];
@@ -79,11 +80,15 @@ function injectStepperStyles() {
   const style = document.createElement('style');
   style.id = 'modeStepperStyles';
   style.textContent = `
+    .level-panel {
+      gap: 0;
+    }
+
     .selection-progress {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 6px;
-      margin: 14px 0 8px;
+      gap: 8px;
+      margin: 14px 0 12px;
     }
 
     .selection-progress span {
@@ -92,7 +97,7 @@ function injectStepperStyles() {
       color: #74532b;
       font-size: 0.68rem;
       font-weight: 900;
-      padding: 6px 7px;
+      padding: 7px 8px;
       text-align: center;
       text-transform: uppercase;
     }
@@ -107,6 +112,15 @@ function injectStepperStyles() {
     #levelGrid[hidden],
     #startButton[hidden] {
       display: none !important;
+    }
+
+    .selection-step {
+      animation: stepIn 150ms ease-out;
+    }
+
+    @keyframes stepIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
     .selection-step-actions {
@@ -127,26 +141,31 @@ function injectStepperStyles() {
     }
 
     .mode-grid,
-    .level-grid {
-      max-height: min(42dvh, 380px);
+    .level-grid,
+    .character-grid {
+      max-height: min(45dvh, 390px);
       overflow-y: auto;
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
-      padding-right: 3px;
+      padding-right: 4px;
+      padding-bottom: 8px;
     }
 
-    .character-grid {
-      max-height: min(38dvh, 320px);
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      touch-action: pan-y;
-      padding-right: 3px;
+    .selection-step-help {
+      margin: 10px 0 0;
+      border-radius: 14px;
+      background: rgba(95, 143, 67, 0.13);
+      color: #5f4b2c;
+      font-size: 0.82rem;
+      font-weight: 750;
+      line-height: 1.25;
+      padding: 10px 12px;
     }
 
     @media (max-width: 430px) {
-      .mode-grid {
+      .mode-grid,
+      .character-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -187,23 +206,39 @@ function ensureModeSelector() {
   section.innerHTML = `
     <p class="eyebrow">Modo</p>
     <div class="mode-grid" id="modeGrid"></div>
+    <p class="selection-step-help">Al tocar un modo avanzarás al selector de personaje.</p>
   `;
 
   levelPanel.insertBefore(section, characterSelect || document.querySelector('#levelGrid'));
+}
+
+function ensureLevelSection() {
+  const levelGrid = document.querySelector('#levelGrid');
+  if (!levelGrid || levelGrid.closest('#levelSelect')) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.id = 'levelSelect';
+  wrapper.className = 'level-select selection-step';
+  wrapper.dataset.step = 'level';
+  wrapper.setAttribute('aria-label', 'Selector de nivel');
+  wrapper.innerHTML = `<p class="eyebrow">Nivel</p>`;
+  levelGrid.parentNode.insertBefore(wrapper, levelGrid);
+  wrapper.append(levelGrid);
 }
 
 function ensureStepStructure() {
   injectStepperStyles();
   ensureStepper();
   ensureModeSelector();
+  ensureLevelSection();
 
   const characterSelect = document.querySelector('.character-select');
-  const levelGrid = document.querySelector('#levelGrid');
+  const levelSelect = document.querySelector('#levelSelect');
 
   characterSelect?.classList.add('selection-step');
   characterSelect?.setAttribute('data-step', 'character');
-  levelGrid?.classList.add('selection-step');
-  levelGrid?.setAttribute('data-step', 'level');
+  levelSelect?.classList.add('selection-step');
+  levelSelect?.setAttribute('data-step', 'level');
 
   ensureStepActions();
   setupAutoAdvanceDelegation();
@@ -232,18 +267,21 @@ function setupAutoAdvanceDelegation() {
   if (!menu || menu.dataset.autoAdvanceReady === 'true') return;
 
   menu.dataset.autoAdvanceReady = 'true';
-  menu.addEventListener('click', (event) => {
-    const button = event.target.closest('button');
-    if (!button) return;
 
-    if (button.closest('#modeGrid')) {
-      return;
-    }
+  menu.addEventListener(
+    'click',
+    (event) => {
+      const button = event.target.closest('button');
+      if (!button || !menu.contains(button)) return;
 
-    if (currentStep === 'character' && button.closest('#characterGrid')) {
-      window.requestAnimationFrame(() => showStep('level', true));
-    }
-  });
+      if (button.closest('#modeGrid')) return;
+
+      if (currentStep === 'character' && button.closest('#characterGrid')) {
+        window.setTimeout(() => showStep('level', true), 0);
+      }
+    },
+    true,
+  );
 }
 
 function renderModeSelector(force = false) {
@@ -320,9 +358,9 @@ function showStep(step, focus = false) {
     level: 'Elige ruta',
   };
   const descriptions = {
-    mode: 'Selecciona un modo para pasar al personaje.',
-    character: 'Toca un personaje para continuar al nivel.',
-    level: 'Elige el nivel y empieza la partida.',
+    mode: 'Toca una opción y avanzas automáticamente.',
+    character: 'Toca un personaje y pasarás al nivel.',
+    level: 'Elige ruta y pulsa jugar.',
   };
 
   if (title) title.textContent = titles[step];
@@ -360,9 +398,7 @@ function resetStepScroll() {
   if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' });
   activeStep?.scrollTo?.({ top: 0, behavior: 'instant' });
 
-  const grid = activeStep?.matches('#levelGrid')
-    ? activeStep
-    : activeStep?.querySelector('.mode-grid, .character-grid, .level-grid');
+  const grid = activeStep?.querySelector('.mode-grid, .character-grid, .level-grid');
   grid?.scrollTo?.({ top: 0, behavior: 'instant' });
 }
 
@@ -405,19 +441,19 @@ function install() {
   const menu = document.querySelector('#menu');
 
   if (menu) {
-    const observer = new MutationObserver((mutations) => {
-      const shouldSync = mutations.some((mutation) => mutation.type === 'attributes');
+    const observer = new MutationObserver(() => {
+      const visible = !menu.hidden && menu.classList.contains('is-visible');
 
-      if (shouldSync) {
-        window.requestAnimationFrame(() => {
-          renderModeSelector();
-          updateLevelRecordLabels();
+      window.requestAnimationFrame(() => {
+        renderModeSelector();
+        updateLevelRecordLabels();
 
-          if (!menu.hidden && menu.classList.contains('is-visible')) {
-            showStep('mode', true);
-          }
-        });
-      }
+        if (visible && !menuWasVisible) {
+          showStep('mode', true);
+        }
+
+        menuWasVisible = visible;
+      });
     });
 
     observer.observe(menu, { attributes: true, attributeFilter: ['hidden', 'class'] });
