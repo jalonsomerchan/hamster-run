@@ -4,6 +4,7 @@ import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
 import tasmanianSheet from '../assets/sprites/characters/tasmanian/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
+import heartSheet from '../assets/sprites/heart/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
 import groundEnemySheet from '../assets/sprites/enemies/ground/sheet-transparent.png';
 import flyingEnemySheet from '../assets/sprites/enemies/flying/sheet-transparent.png';
@@ -31,9 +32,9 @@ const gameControls = document.querySelector('.game-controls');
 const scoreEl = document.querySelector('#score');
 const peanutsEl = document.querySelector('#peanuts');
 const timeEl = document.querySelector('#time');
+const livesEl = document.querySelector('#lives');
 const menu = document.querySelector('#menu');
 const home = document.querySelector('#home');
-const pauseMenu = document.querySelector('#pauseMenu');
 const gameOver = document.querySelector('#gameOver');
 const heroPreview = document.querySelector('#heroPreview');
 const heroCtx = heroPreview.getContext('2d');
@@ -44,11 +45,7 @@ const aboutButton = document.querySelector('#aboutButton');
 const shareButton = document.querySelector('#shareButton');
 const startButton = document.querySelector('#startButton');
 const backHomeButton = document.querySelector('#backHomeButton');
-const pauseButton = document.querySelector('#pauseButton');
 const gameMenuButton = document.querySelector('#gameMenuButton');
-const resumeButton = document.querySelector('#resumeButton');
-const pauseLevelsButton = document.querySelector('#pauseLevelsButton');
-const pauseHomeButton = document.querySelector('#pauseHomeButton');
 const retryButton = document.querySelector('#retryButton');
 const levelsButton = document.querySelector('#levelsButton');
 const finalScore = document.querySelector('#finalScore');
@@ -74,6 +71,8 @@ const levels = [
     width: [175, 360],
     startVertical: 24,
     vertical: 58,
+    lanes: [0.52, 0.62, 0.72],
+    movingChance: 0.08,
     platformVariant: 0,
     backgroundSet: 'meadow',
     palette: ['#91d8ea', '#bcebc7', '#f5cb6b'],
@@ -93,6 +92,8 @@ const levels = [
     width: [170, 345],
     startVertical: 26,
     vertical: 60,
+    lanes: [0.5, 0.61, 0.72],
+    movingChance: 0.1,
     platformVariant: 1,
     backgroundSet: 'meadow',
     palette: ['#8fd2e5', '#aee9bd', '#f4d16f'],
@@ -112,6 +113,8 @@ const levels = [
     width: [150, 310],
     startVertical: 27,
     vertical: 64,
+    lanes: [0.48, 0.6, 0.73],
+    movingChance: 0.13,
     platformVariant: 2,
     backgroundSet: 'meadow',
     palette: ['#88cce1', '#9edba8', '#eec86a'],
@@ -131,6 +134,8 @@ const levels = [
     width: [165, 335],
     startVertical: 28,
     vertical: 66,
+    lanes: [0.48, 0.59, 0.72],
+    movingChance: 0.14,
     platformVariant: 3,
     backgroundSet: 'barn',
     palette: ['#7bc6d8', '#edc486', '#d4733e'],
@@ -150,6 +155,8 @@ const levels = [
     width: [160, 330],
     startVertical: 30,
     vertical: 70,
+    lanes: [0.46, 0.58, 0.72],
+    movingChance: 0.16,
     platformVariant: 4,
     backgroundSet: 'barn',
     palette: ['#78bfd6', '#e8bd78', '#d06b3d'],
@@ -169,6 +176,8 @@ const levels = [
     width: [145, 300],
     startVertical: 32,
     vertical: 74,
+    lanes: [0.45, 0.57, 0.71],
+    movingChance: 0.18,
     platformVariant: 5,
     backgroundSet: 'moon',
     palette: ['#6ea9c7', '#86c4a7', '#e7a947'],
@@ -178,6 +187,7 @@ const levels = [
 const PLATFORM_HEIGHT = 40;
 const LANDING_ZONE = 78;
 const START_SAFE_PLATFORMS = 7;
+const MOVING_PLATFORM_AMPLITUDE = 42;
 
 const platformAssets = [
   { image: makeImage(platformWoodLong), crop: [10, 91, 238, 73], cap: 52, minWidth: 170 },
@@ -195,7 +205,7 @@ const backgroundThemes = {
     farHill: '#7ec98f',
     nearHill: '#4fa96f',
     ground: '#7ab565',
-    props: [0, 1, 2],
+    props: [0, 1],
   },
   barn: {
     skyTop: '#78c6df',
@@ -203,7 +213,7 @@ const backgroundThemes = {
     farHill: '#d7b16b',
     nearHill: '#9bbb68',
     ground: '#c7924e',
-    props: [0, 3, 5],
+    props: [0, 3],
   },
   moon: {
     skyTop: '#556fa7',
@@ -211,7 +221,7 @@ const backgroundThemes = {
     farHill: '#668f8f',
     nearHill: '#5e9b75',
     ground: '#6d9a66',
-    props: [4, 0, 1],
+    props: [4, 0],
   },
 };
 
@@ -229,6 +239,7 @@ const sprites = {
   blueHamster: { image: makeImage(blueHamsterSheet), cols: 4, rows: 1, cell: 192 },
   tasmanian: { image: makeImage(tasmanianSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
+  heart: { image: makeImage(heartSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
   groundEnemy: { image: makeImage(groundEnemySheet), cols: 4, rows: 1, cell: 168 },
   flyingEnemy: { image: makeImage(flyingEnemySheet), cols: 4, rows: 1, cell: 168 },
@@ -255,6 +266,8 @@ const state = {
   score: 0,
   distance: 0,
   peanuts: 0,
+  lives: 3,
+  invincible: 0,
   selectedLevel: 0,
   selectedCharacter: 0,
   last: performance.now(),
@@ -275,6 +288,7 @@ const player = {
 
 let platforms = [];
 let peanuts = [];
+let hearts = [];
 let enemies = [];
 let decor = [];
 let backgroundProps = [];
@@ -407,6 +421,8 @@ function resetGame() {
   state.score = 0;
   state.distance = 0;
   state.peanuts = 0;
+  state.lives = 3;
+  state.invincible = 1.2;
   state.speedBoost = 0;
   state.shake = 0;
   state.platformCount = 0;
@@ -431,12 +447,13 @@ function resetGame() {
   ];
   state.platformCount = platforms.length;
   peanuts = [];
+  hearts = [];
   enemies = [];
   decor = [];
   bursts = [];
   backgroundProps = createBackgroundProps();
   while (lastPlatformEnd() < state.width * 1.8) {
-    spawnPlatform();
+    spawnPlatform(platforms[platforms.length - 1]);
   }
 
   setActiveOverlay(null);
@@ -450,8 +467,10 @@ function lastPlatformEnd() {
 
 function makePlatform(x, y, width, variant = 0) {
   return {
+    id: state.platformCount,
     x,
     y,
+    baseY: y,
     width,
     height: PLATFORM_HEIGHT,
     variant,
@@ -462,44 +481,91 @@ function currentDifficulty() {
   return clamp((state.distance - 650) / 5200, 0, 1);
 }
 
+function laneY(index) {
+  const lanes = state.level.lanes || [0.52, 0.64, 0.74];
+  const clampedIndex = clamp(index, 0, lanes.length - 1);
+  return state.height * lanes[clampedIndex];
+}
+
+function closestLaneIndex(y) {
+  const lanes = state.level.lanes || [0.52, 0.64, 0.74];
+  let bestIndex = 0;
+  let bestDistance = Infinity;
+  lanes.forEach((lane, index) => {
+    const distance = Math.abs(state.height * lane - y);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  });
+  return bestIndex;
+}
+
+function choosePlatformY(previous, gap, difficulty) {
+  if (!previous) {
+    return laneY(2);
+  }
+  const lanes = state.level.lanes || [0.52, 0.64, 0.74];
+  const previousLane = previous.lane ?? closestLaneIndex(previous.baseY ?? previous.y);
+  const canStepTwo = difficulty > 0.55 && gap < 136;
+  const options = [-1, 0, 1, canStepTwo ? 2 : 0].filter((step) => {
+    const nextLane = previousLane + step;
+    return nextLane >= 0 && nextLane < lanes.length;
+  });
+  const easierBias = previousLane === lanes.length - 1 && difficulty < 0.35 ? [-1, 0, 0, 0] : options;
+  const step = easierBias[Math.floor(random(0, easierBias.length))];
+  const lane = clamp(previousLane + step, 0, lanes.length - 1);
+  const wobble = random(-10, 10) * difficulty;
+  return laneY(lane) + wobble;
+}
+
+function maybeMakePlatformMoving(platform, difficulty) {
+  const chance = state.level.movingChance * clamp(difficulty + 0.2, 0, 1);
+  if (platform.index < START_SAFE_PLATFORMS + 3 || Math.random() > chance) {
+    platform.baseY = platform.y;
+    return;
+  }
+  platform.moving = true;
+  platform.baseY = platform.y;
+  platform.phase = random(0, Math.PI * 2);
+  platform.amplitude = random(18, MOVING_PLATFORM_AMPLITUDE);
+  platform.moveSpeed = random(1.1, 1.7);
+}
+
 function createBackgroundProps() {
   const props = [];
   const theme = backgroundThemes[state.level.backgroundSet] || backgroundThemes.meadow;
   const candidates = theme.props;
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < 10; index += 1) {
     const sprite = candidates[index % candidates.length];
     const lane = sprites.background[sprite].lane;
-    const spacing = lane === 'sky' ? random(210, 310) : random(240, 360);
+    const spacing = lane === 'sky' ? random(230, 340) : random(360, 520);
     props.push({
       sprite,
       lane,
       x: index * spacing + random(20, 130),
-      size: lane === 'sky' ? random(74, 120) : lane === 'horizon' ? random(88, 135) : random(105, 160),
-      speed: lane === 'sky' ? random(0.06, 0.12) : lane === 'horizon' ? random(0.16, 0.23) : random(0.25, 0.34),
+      size: lane === 'sky' ? random(74, 120) : random(105, 155),
+      speed: lane === 'sky' ? random(0.06, 0.12) : random(0.11, 0.17),
     });
   }
   return props;
 }
 
-function spawnPlatform() {
+function spawnPlatform(previous = platforms[platforms.length - 1]) {
   const level = state.level;
-  const previous = platforms[platforms.length - 1];
   const difficulty = currentDifficulty();
   const gapRange = lerpRange(level.startGap, level.gap, difficulty);
   const widthRange = lerpRange(level.startWidth, level.width, difficulty);
-  const maxVertical = lerp(level.startVertical, level.vertical, difficulty);
-  const gap = random(gapRange[0], Math.min(gapRange[1], state.width * 0.43));
+  const gap = random(gapRange[0], Math.min(gapRange[1], state.width * 0.46));
   const minWidth = Math.max(widthRange[0], LANDING_ZONE * 2 + player.width);
   const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 28), state.width * 0.94);
   const width = random(minWidth, maxWidth);
-  const yMin = state.height * 0.47;
-  const yMax = state.height * 0.76;
-  const rawDelta = random(-maxVertical * 0.72, maxVertical);
-  const jumpFriendlyDelta = gap > 155 ? Math.max(rawDelta, -maxVertical * 0.35) : rawDelta;
-  const y = previous ? clamp(previous.y + jumpFriendlyDelta, yMin, yMax) : yMax;
+  const y = choosePlatformY(previous, gap, difficulty);
   const variant = level.platformVariant;
   const platform = makePlatform((previous ? previous.x + previous.width : 0) + gap, y, width, variant);
   platform.index = state.platformCount;
+  platform.lane = closestLaneIndex(y);
+  maybeMakePlatformMoving(platform, difficulty);
   state.platformCount += 1;
   platforms.push(platform);
 
@@ -508,12 +574,29 @@ function spawnPlatform() {
   const peanutEnd = platform.x + platform.width - 42;
   for (let index = 0; index < peanutCount; index += 1) {
     const x = clamp(peanutStart + index * 42, peanutStart, peanutEnd);
+    const yOffset = random(68, 104);
     peanuts.push({
       x,
-      y: platform.y - random(68, 104),
+      y: platform.y - yOffset,
       size: 28,
       taken: false,
       bob: random(0, Math.PI * 2),
+      platformId: platform.id,
+      yOffset,
+    });
+  }
+
+  const heartChance = platform.index > START_SAFE_PLATFORMS && state.lives < 5 ? 0.08 + difficulty * 0.05 : 0.025;
+  if (Math.random() < heartChance && platform.width > 190) {
+    const yOffset = random(95, 128);
+    hearts.push({
+      x: platform.x + random(platform.width * 0.35, platform.width * 0.72),
+      y: platform.y - yOffset,
+      size: 30,
+      taken: false,
+      bob: random(0, Math.PI * 2),
+      platformId: platform.id,
+      yOffset,
     });
   }
 
@@ -529,6 +612,8 @@ function spawnPlatform() {
       x: platform.x + random(18, Math.max(20, platform.width - 30)),
       y: platform.y - 25,
       size: random(24, 34),
+      platformId: platform.id,
+      yOffset: 25,
     });
   }
 }
@@ -560,6 +645,8 @@ function spawnEnemy(platform, enemyX, difficulty) {
       height: 37,
       platformLeft: platform.x + LANDING_ZONE,
       platformRight: platform.x + platform.width - LANDING_ZONE - 48,
+      platformId: platform.id,
+      yOffset: 40,
       patrolSpeed: random(18, 32) + difficulty * 16,
       direction: Math.random() < 0.5 ? -1 : 1,
       phase: random(0, Math.PI * 2),
@@ -573,6 +660,8 @@ function spawnEnemy(platform, enemyX, difficulty) {
       height: 39,
       platformLeft: platform.x + LANDING_ZONE,
       platformRight: platform.x + platform.width - LANDING_ZONE - 48,
+      platformId: platform.id,
+      yOffset: 42,
       patrolSpeed: random(14, 26) + difficulty * 12,
       direction: Math.random() < 0.5 ? -1 : 1,
     });
@@ -585,6 +674,8 @@ function spawnEnemy(platform, enemyX, difficulty) {
       height: 39,
       platformLeft: platform.x + LANDING_ZONE,
       platformRight: platform.x + platform.width - LANDING_ZONE - 50,
+      platformId: platform.id,
+      yOffset: 42,
       patrolSpeed: random(22, 36) + difficulty * 18,
       direction: Math.random() < 0.5 ? -1 : 1,
       phase: random(0, Math.PI * 2),
@@ -596,6 +687,8 @@ function spawnEnemy(platform, enemyX, difficulty) {
       y: platform.y - 48,
       width: 44,
       height: 44,
+      platformId: platform.id,
+      yOffset: 48,
     });
   }
 }
@@ -626,26 +719,8 @@ function showLevelSelect() {
   syncGameChrome();
 }
 
-function pauseGame() {
-  if (state.mode !== 'running') {
-    return;
-  }
-  state.mode = 'paused';
-  setActiveOverlay(pauseMenu);
-  syncGameChrome();
-}
-
-function resumeGame() {
-  if (state.mode !== 'paused') {
-    return;
-  }
-  state.mode = 'running';
-  setActiveOverlay(null);
-  syncGameChrome();
-}
-
 function setActiveOverlay(activeOverlay) {
-  [home, menu, pauseMenu, gameOver].forEach((overlay) => {
+  [home, menu, gameOver].forEach((overlay) => {
     const isActive = overlay === activeOverlay;
     overlay.hidden = !isActive;
     overlay.classList.toggle('is-visible', isActive);
@@ -653,7 +728,7 @@ function setActiveOverlay(activeOverlay) {
 }
 
 function syncGameChrome() {
-  const inGame = state.mode === 'running' || state.mode === 'paused';
+  const inGame = state.mode === 'running';
   hud.hidden = !inGame;
   gameControls.hidden = !inGame;
 }
@@ -681,6 +756,7 @@ function update(dt) {
   }
 
   state.time += dt;
+  state.invincible = Math.max(0, state.invincible - dt);
   state.speedBoost += dt * 2.6;
   const speed = state.level.speed + Math.min(82, state.speedBoost);
   const move = speed * dt;
@@ -689,10 +765,11 @@ function update(dt) {
 
   player.vy += state.level.gravity * dt;
   const previousBottom = player.y + player.height;
+  const wasGrounded = player.grounded;
   player.y += player.vy * dt;
   player.grounded = false;
 
-  for (const group of [platforms, peanuts, enemies, decor, bursts]) {
+  for (const group of [platforms, peanuts, hearts, enemies, decor, bursts]) {
     group.forEach((item) => {
       item.x -= move;
       if (item.platformLeft !== undefined) {
@@ -701,6 +778,7 @@ function update(dt) {
       }
     });
   }
+  updateMovingPlatforms(dt, wasGrounded);
   enemies.forEach((enemy) => {
     if (enemy.kind === 'ground' || enemy.kind === 'enemy' || enemy.kind === 'chestnut') {
       updatePatrolEnemy(enemy, dt);
@@ -745,28 +823,37 @@ function update(dt) {
     }
   }
 
+  for (const heart of hearts) {
+    if (!heart.taken && intersects(playerBox(7), itemBox(heart))) {
+      heart.taken = true;
+      state.lives = Math.min(6, state.lives + 1);
+      state.score += 110;
+    }
+  }
+
   for (const enemy of enemies) {
     if (!enemy.defeated && intersects(playerBox(9), enemyBox(enemy))) {
       if (canStomp(enemy, previousBottom)) {
         stompEnemy(enemy);
       } else {
-        endGame();
+        loseLife();
       }
     }
   }
 
   if (player.y > state.height + 90) {
-    endGame();
+    loseLife();
   }
 
   platforms = platforms.filter((platform) => platform.x + platform.width > -80);
   peanuts = peanuts.filter((peanut) => peanut.x > -80 && !peanut.taken);
+  hearts = hearts.filter((heart) => heart.x > -80 && !heart.taken);
   enemies = enemies.filter((enemy) => enemy.x > -100 && !enemy.defeated);
   decor = decor.filter((item) => item.x > -80);
   bursts = bursts.filter((burst) => burst.life > 0);
 
   while (lastPlatformEnd() < state.width * 1.85) {
-    spawnPlatform();
+    spawnPlatform(platforms[platforms.length - 1]);
   }
 
   state.score = Math.max(state.score, Math.floor(state.distance * 0.18 + state.time * 12 + state.peanuts * 75));
@@ -784,6 +871,43 @@ function updatePatrolEnemy(enemy, dt) {
   } else if (enemy.x >= enemy.platformRight) {
     enemy.x = enemy.platformRight;
     enemy.direction = -1;
+  }
+}
+
+function updateMovingPlatforms(dt, wasGrounded) {
+  const platformById = new Map(platforms.map((platform) => [platform.id, platform]));
+  platforms.forEach((platform) => {
+    if (!platform.moving) {
+      return;
+    }
+    const previousY = platform.y;
+    platform.previousY = previousY;
+    platform.phase += platform.moveSpeed * dt;
+    platform.y = platform.baseY + Math.sin(platform.phase) * platform.amplitude;
+    platform.dy = platform.y - previousY;
+  });
+
+  for (const item of [...peanuts, ...enemies, ...decor]) {
+    if (item.platformId === undefined || item.kind === 'flying') {
+      continue;
+    }
+    const platform = platformById.get(item.platformId);
+    if (!platform) {
+      continue;
+    }
+    item.y = platform.y - item.yOffset;
+  }
+
+  const standingPlatform = platforms.find((platform) => {
+    return (
+      wasGrounded &&
+      Math.abs(player.y + player.height - (platform.previousY ?? platform.y)) < 6 &&
+      player.x + player.width * 0.78 > platform.x &&
+      player.x + player.width * 0.22 < platform.x + platform.width
+    );
+  });
+  if (standingPlatform?.moving) {
+    player.y += standingPlatform.dy || 0;
   }
 }
 
@@ -880,7 +1004,7 @@ function draw() {
   ctx.fillRect(0, 0, state.width, state.height);
   drawBackground(hill, sun);
 
-  if (state.mode === 'running' || state.mode === 'paused' || state.mode === 'over') {
+  if (state.mode === 'running' || state.mode === 'over') {
     decor.forEach((item) => {
       ctx.drawImage(sprites.grass, item.x, item.y, item.size, item.size);
     });
@@ -939,7 +1063,7 @@ function drawBackground(hill, sun) {
     const width = item.size;
     const height = item.size * aspect;
     const y = backgroundLaneY(item.lane, height, horizon, item.x);
-    ctx.globalAlpha = item.lane === 'sky' ? 0.86 : 0.76;
+    ctx.globalAlpha = item.lane === 'sky' ? 0.82 : 0.42;
     ctx.drawImage(asset.image, sx, sy, sw, sh, item.x, y, width, height);
   });
   ctx.globalAlpha = 1;
@@ -950,9 +1074,9 @@ function backgroundLaneY(lane, height, horizon, x) {
     return state.height * 0.1 + Math.sin(x * 0.018) * 10;
   }
   if (lane === 'horizon') {
-    return horizon - height * 0.86 + 18;
+    return horizon - height + 42;
   }
-  return horizon - height * 0.28 + 34;
+  return state.height - height - 36;
 }
 
 function drawPlatform(platform) {
@@ -1143,11 +1267,7 @@ shareButton.addEventListener('click', () => {
     }, 1400);
   });
 });
-pauseButton.addEventListener('click', pauseGame);
 gameMenuButton.addEventListener('click', showLevelSelect);
-resumeButton.addEventListener('click', resumeGame);
-pauseLevelsButton.addEventListener('click', showLevelSelect);
-pauseHomeButton.addEventListener('click', showHome);
 retryButton.addEventListener('click', resetGame);
 levelsButton.addEventListener('click', showLevelSelect);
 
