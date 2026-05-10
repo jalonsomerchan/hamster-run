@@ -66,6 +66,21 @@ function inlineImports(source) {
 function patchLifeSystem(source) {
   let patched = source;
 
+  if (!/function\s+itemBox\s*\(/.test(patched)) {
+    patched += `
+
+function itemBox(item) {
+  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;
+  return {
+    x: item.x,
+    y: item.y,
+    width: item.width || size,
+    height: item.height || size,
+  };
+}
+`;
+  }
+
   if (!/function\s+loseLife\s*\(/.test(patched)) {
     patched += `
 
