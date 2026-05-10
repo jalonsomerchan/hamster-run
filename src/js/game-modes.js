@@ -32,6 +32,7 @@ const modes = [
 ];
 
 let selectedModeId = localStorage.getItem(MODE_KEY) || 'endless';
+let modeSelectorRenderedFor = '';
 
 function selectedMode() {
   return modes.find((mode) => mode.id === selectedModeId) || modes[0];
@@ -41,7 +42,7 @@ function setSelectedMode(modeId) {
   if (!modes.some((mode) => mode.id === modeId)) return;
   selectedModeId = modeId;
   localStorage.setItem(MODE_KEY, selectedModeId);
-  renderModeSelector();
+  renderModeSelector(true);
   updateLevelRecordLabels();
   window.dispatchEvent(new CustomEvent('hamster-run-mode-change', { detail: selectedMode() }));
 }
@@ -84,13 +85,17 @@ function ensureModeSelector() {
   levelPanel.insertBefore(section, characterSelect || document.querySelector('#levelGrid'));
 }
 
-function renderModeSelector() {
+function renderModeSelector(force = false) {
   ensureModeSelector();
 
   const grid = document.querySelector('#modeGrid');
   if (!grid) return;
 
-  grid.innerHTML = '';
+  const renderKey = `${selectedModeId}:${modes.length}`;
+  if (!force && modeSelectorRenderedFor === renderKey && grid.children.length === modes.length) return;
+
+  modeSelectorRenderedFor = renderKey;
+  grid.replaceChildren();
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', 'Selector de modo de juego');
 
@@ -123,7 +128,10 @@ function updateLevelRecordLabels() {
 
     if (!levelId || !small) return;
 
-    small.textContent = `Récord ${mode.name}: ${recordForLevel(levelId)}`;
+    const nextText = `Récord ${mode.name}: ${recordForLevel(levelId)}`;
+    if (small.textContent !== nextText) {
+      small.textContent = nextText;
+    }
   });
 }
 
@@ -150,17 +158,27 @@ function setupModeKeyboard() {
 }
 
 function install() {
-  const observer = new MutationObserver(() => {
-    renderModeSelector();
-    updateLevelRecordLabels();
-  });
   const menu = document.querySelector('#menu');
 
   if (menu) {
-    observer.observe(menu, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] });
+    const observer = new MutationObserver((mutations) => {
+      const shouldSync = mutations.some((mutation) => {
+        if (mutation.type === 'attributes') return true;
+        return [...mutation.addedNodes].some((node) => node instanceof HTMLElement && node.id === 'levelGrid');
+      });
+
+      if (shouldSync) {
+        window.requestAnimationFrame(() => {
+          renderModeSelector();
+          updateLevelRecordLabels();
+        });
+      }
+    });
+
+    observer.observe(menu, { childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });
   }
 
-  renderModeSelector();
+  renderModeSelector(true);
   updateLevelRecordLabels();
   setupModeKeyboard();
 }
