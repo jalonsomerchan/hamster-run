@@ -1,5 +1,6 @@
 import appSource from './app.js?raw';
 import '../css/main.css';
+import './accessibility.js';
 
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
