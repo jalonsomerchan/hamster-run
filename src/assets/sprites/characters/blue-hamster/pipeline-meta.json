@@ -1,0 +1,175 @@
+{
+  "target": "asset",
+  "mode": "run",
+  "prompt": "Hamster Run blue scarf hamster companion running right, clean HD cartoon sprite, 1x4 sheet on solid magenta.",
+  "role": "",
+  "input": "src/assets/sprites/raw/blue-hamster-raw.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 200,
+  "rows": 1,
+  "cols": 4,
+  "cell_size": 192,
+  "fit_scale": 0.9,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "bottom",
+  "shared_scale": true,
+  "component_mode": "largest",
+  "component_padding": 10,
+  "min_component_area": 1,
+  "edge_touch_margin": 0,
+  "frame_labels": [
+    "blue-hamster-1",
+    "blue-hamster-2",
+    "blue-hamster-3",
+    "blue-hamster-4"
+  ],
+  "frames": [
+    {
+      "grid": [
+        0,
+        0
+      ],
+      "source_box": [
+        0,
+        0,
+        543,
+        724
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 80726,
+      "selected_component_bbox": [
+        116,
+        174,
+        451,
+        541
+      ],
+      "crop_bbox": [
+        106,
+        164,
+        461,
+        551
+      ],
+      "edge_touch": false,
+      "output_size": [
+        150,
+        163
+      ],
+      "paste_position": [
+        21,
+        20
+      ]
+    },
+    {
+      "grid": [
+        0,
+        1
+      ],
+      "source_box": [
+        543,
+        0,
+        1086,
+        724
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 82839,
+      "selected_component_bbox": [
+        59,
+        174,
+        447,
+        532
+      ],
+      "crop_bbox": [
+        49,
+        164,
+        457,
+        542
+      ],
+      "edge_touch": false,
+      "output_size": [
+        172,
+        160
+      ],
+      "paste_position": [
+        10,
+        23
+      ]
+    },
+    {
+      "grid": [
+        0,
+        2
+      ],
+      "source_box": [
+        1086,
+        0,
+        1629,
+        724
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 75549,
+      "selected_component_bbox": [
+        101,
+        170,
+        447,
+        541
+      ],
+      "crop_bbox": [
+        91,
+        160,
+        457,
+        551
+      ],
+      "edge_touch": false,
+      "output_size": [
+        155,
+        165
+      ],
+      "paste_position": [
+        18,
+        18
+      ]
+    },
+    {
+      "grid": [
+        0,
+        3
+      ],
+      "source_box": [
+        1629,
+        0,
+        2172,
+        724
+      ],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 69466,
+      "selected_component_bbox": [
+        65,
+        171,
+        400,
+        514
+      ],
+      "crop_bbox": [
+        55,
+        161,
+        410,
+        524
+      ],
+      "edge_touch": false,
+      "output_size": [
+        150,
+        153
+      ],
+      "paste_position": [
+        21,
+        30
+      ]
+    }
+  ],
+  "edge_touch_frames": []
+}

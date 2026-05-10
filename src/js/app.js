@@ -1,10 +1,13 @@
 import '../css/main.css';
 
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
+import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
+import tasmanianSheet from '../assets/sprites/characters/tasmanian/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
 import groundEnemySheet from '../assets/sprites/enemies/ground/sheet-transparent.png';
 import flyingEnemySheet from '../assets/sprites/enemies/flying/sheet-transparent.png';
+import chestnutEnemySheet from '../assets/sprites/enemies/chestnut/sheet-transparent.png';
 import platformWoodLong from '../assets/sprites/platforms/platform-1.png';
 import platformWoodMedium from '../assets/sprites/platforms/platform-2.png';
 import platformWoodShort from '../assets/sprites/platforms/platform-3.png';
@@ -35,6 +38,7 @@ const gameOver = document.querySelector('#gameOver');
 const heroPreview = document.querySelector('#heroPreview');
 const heroCtx = heroPreview.getContext('2d');
 const levelGrid = document.querySelector('#levelGrid');
+const characterGrid = document.querySelector('#characterGrid');
 const newGameButton = document.querySelector('#newGameButton');
 const aboutButton = document.querySelector('#aboutButton');
 const shareButton = document.querySelector('#shareButton');
@@ -222,15 +226,24 @@ const backgroundAssets = [
 
 const sprites = {
   hamster: { image: makeImage(hamsterSheet), cols: 4, rows: 1, cell: 192 },
+  blueHamster: { image: makeImage(blueHamsterSheet), cols: 4, rows: 1, cell: 192 },
+  tasmanian: { image: makeImage(tasmanianSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
   groundEnemy: { image: makeImage(groundEnemySheet), cols: 4, rows: 1, cell: 168 },
   flyingEnemy: { image: makeImage(flyingEnemySheet), cols: 4, rows: 1, cell: 168 },
+  chestnutEnemy: { image: makeImage(chestnutEnemySheet), cols: 4, rows: 1, cell: 168 },
   platforms: platformAssets,
   background: backgroundAssets,
   thistle: makeImage(thistleSprite),
   grass: makeImage(grassSprite),
 };
+
+const characters = [
+  { id: 'hamster', name: 'Hamster rojo', sprite: sprites.hamster, width: 62, height: 54 },
+  { id: 'blueHamster', name: 'Hamster azul', sprite: sprites.blueHamster, width: 62, height: 54 },
+  { id: 'tasmanian', name: 'Demonio', sprite: sprites.tasmanian, width: 66, height: 56 },
+];
 
 const state = {
   mode: 'menu',
@@ -243,6 +256,7 @@ const state = {
   distance: 0,
   peanuts: 0,
   selectedLevel: 0,
+  selectedCharacter: 0,
   last: performance.now(),
   speedBoost: 0,
   shake: 0,
@@ -339,8 +353,54 @@ function buildLevelMenu() {
   });
 }
 
+function buildCharacterMenu() {
+  characterGrid.innerHTML = '';
+  characters.forEach((character, index) => {
+    const button = document.createElement('button');
+    const preview = document.createElement('canvas');
+    const label = document.createElement('span');
+    button.type = 'button';
+    button.className = 'character-card';
+    button.setAttribute('aria-pressed', String(index === state.selectedCharacter));
+    label.textContent = character.name;
+    button.append(preview, label);
+    button.addEventListener('click', () => {
+      state.selectedCharacter = index;
+      applyCharacter();
+      buildCharacterMenu();
+    });
+    characterGrid.append(button);
+    drawCharacterCard(preview, character.sprite);
+  });
+}
+
+function drawCharacterCard(preview, sprite) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const cssWidth = preview.clientWidth || 96;
+  const cssHeight = preview.clientHeight || 58;
+  const width = Math.max(1, Math.floor(cssWidth * dpr));
+  const height = Math.max(1, Math.floor(cssHeight * dpr));
+  preview.width = width;
+  preview.height = height;
+  const previewCtx = preview.getContext('2d');
+  previewCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  previewCtx.clearRect(0, 0, cssWidth, cssHeight);
+  previewCtx.drawImage(sprite.image, 0, 0, sprite.cell, sprite.cell, 8, -4, cssWidth - 16, cssHeight + 12);
+}
+
+function selectedCharacter() {
+  return characters[state.selectedCharacter] || characters[0];
+}
+
+function applyCharacter() {
+  const character = selectedCharacter();
+  player.width = character.width;
+  player.height = character.height;
+}
+
 function resetGame() {
   const floor = state.height * 0.7;
+  applyCharacter();
   state.level = levels[state.selectedLevel];
   state.mode = 'running';
   state.time = 0;
@@ -476,13 +536,14 @@ function spawnPlatform() {
 function spawnEnemy(platform, enemyX, difficulty) {
   const canFly = platform.index > START_SAFE_PLATFORMS + 2 && Math.random() < 0.28 + difficulty * 0.28;
   if (canFly) {
+    const baseY = platform.y - random(112, 154);
     enemies.push({
       kind: 'flying',
       x: platform.x + platform.width + random(18, 60),
-      y: platform.y - random(105, 142),
-      baseY: platform.y - random(105, 142),
-      width: 46,
-      height: 40,
+      y: baseY,
+      baseY,
+      width: 68,
+      height: 58,
       vx: random(28, 48) + difficulty * 18,
       phase: random(0, Math.PI * 2),
     });
@@ -503,7 +564,7 @@ function spawnEnemy(platform, enemyX, difficulty) {
       direction: Math.random() < 0.5 ? -1 : 1,
       phase: random(0, Math.PI * 2),
     });
-  } else if (roll < 0.72) {
+  } else if (roll < 0.64) {
     enemies.push({
       kind: 'enemy',
       x: enemyX,
@@ -514,6 +575,19 @@ function spawnEnemy(platform, enemyX, difficulty) {
       platformRight: platform.x + platform.width - LANDING_ZONE - 48,
       patrolSpeed: random(14, 26) + difficulty * 12,
       direction: Math.random() < 0.5 ? -1 : 1,
+    });
+  } else if (roll < 0.84) {
+    enemies.push({
+      kind: 'chestnut',
+      x: enemyX,
+      y: platform.y - 42,
+      width: 50,
+      height: 39,
+      platformLeft: platform.x + LANDING_ZONE,
+      platformRight: platform.x + platform.width - LANDING_ZONE - 50,
+      patrolSpeed: random(22, 36) + difficulty * 18,
+      direction: Math.random() < 0.5 ? -1 : 1,
+      phase: random(0, Math.PI * 2),
     });
   } else {
     enemies.push({
@@ -546,8 +620,9 @@ function showHome() {
 
 function showLevelSelect() {
   state.mode = 'menu';
-  buildLevelMenu();
   setActiveOverlay(menu);
+  buildCharacterMenu();
+  buildLevelMenu();
   syncGameChrome();
 }
 
@@ -627,7 +702,7 @@ function update(dt) {
     });
   }
   enemies.forEach((enemy) => {
-    if (enemy.kind === 'ground' || enemy.kind === 'enemy') {
+    if (enemy.kind === 'ground' || enemy.kind === 'enemy' || enemy.kind === 'chestnut') {
       updatePatrolEnemy(enemy, dt);
     } else if (enemy.kind === 'flying') {
       enemy.x -= enemy.vx * dt;
@@ -713,7 +788,7 @@ function updatePatrolEnemy(enemy, dt) {
 }
 
 function canStomp(enemy, previousBottom) {
-  if (enemy.kind !== 'ground' && enemy.kind !== 'enemy') {
+  if (enemy.kind !== 'ground' && enemy.kind !== 'enemy' && enemy.kind !== 'chestnut') {
     return false;
   }
   const box = enemyBox(enemy);
@@ -754,10 +829,10 @@ function peanutBox(peanut) {
 function enemyBox(enemy) {
   if (enemy.kind === 'flying') {
     return {
-      x: enemy.x + 7,
-      y: enemy.y + 7,
-      width: enemy.width - 14,
-      height: enemy.height - 13,
+      x: enemy.x + 10,
+      y: enemy.y + 10,
+      width: enemy.width - 20,
+      height: enemy.height - 18,
     };
   }
   return {
@@ -938,10 +1013,16 @@ function drawEnemy(enemy) {
     drawSheetFrame(sprites.groundEnemy, sx, 0, enemy.x - 6, enemy.y - 16, enemy.width + 16, enemy.height + 28);
     return;
   }
+  if (enemy.kind === 'chestnut') {
+    const frame = Math.floor(state.time * 10 + enemy.phase) % 4;
+    const sx = frame * sprites.chestnutEnemy.cell;
+    drawSheetFrame(sprites.chestnutEnemy, sx, 0, enemy.x - 7, enemy.y - 16, enemy.width + 18, enemy.height + 28);
+    return;
+  }
   if (enemy.kind === 'flying') {
     const frame = Math.floor(state.time * 11 + enemy.phase) % 4;
     const sx = frame * sprites.flyingEnemy.cell;
-    drawSheetFrame(sprites.flyingEnemy, sx, 0, enemy.x - 8, enemy.y - 10, enemy.width + 18, enemy.height + 20);
+    drawSheetFrame(sprites.flyingEnemy, sx, 0, enemy.x - 12, enemy.y - 15, enemy.width + 24, enemy.height + 30);
     return;
   }
   const frame = Math.floor(state.time * 9) % 4;
@@ -969,11 +1050,12 @@ function drawBurst(burst) {
 }
 
 function drawHamster() {
+  const character = selectedCharacter();
   const frame = player.grounded ? Math.floor(state.time * 12) % 4 : player.vy < 0 ? 3 : 1;
-  const sx = frame * sprites.hamster.cell;
+  const sx = frame * character.sprite.cell;
   const squash = player.grounded ? Math.sin(state.time * 24) * 1.5 : 0;
   drawSheetFrame(
-    sprites.hamster,
+    character.sprite,
     sx,
     0,
     player.x - 17,
@@ -997,9 +1079,20 @@ function drawHeroPreview() {
   }
   heroCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   heroCtx.clearRect(0, 0, rect.width, rect.height);
+  const character = selectedCharacter();
   const frame = Math.floor(performance.now() / 95) % 4;
-  const sx = frame * sprites.hamster.cell;
-  heroCtx.drawImage(sprites.hamster.image, sx, 0, sprites.hamster.cell, sprites.hamster.cell, rect.width * 0.18, 8, rect.width * 0.64, rect.height * 0.88);
+  const sx = frame * character.sprite.cell;
+  heroCtx.drawImage(
+    character.sprite.image,
+    sx,
+    0,
+    character.sprite.cell,
+    character.sprite.cell,
+    rect.width * 0.18,
+    8,
+    rect.width * 0.64,
+    rect.height * 0.88,
+  );
 }
 
 function drawSheetFrame(sprite, sx, sy, x, y, width, height) {
@@ -1059,6 +1152,8 @@ retryButton.addEventListener('click', resetGame);
 levelsButton.addEventListener('click', showLevelSelect);
 
 resize();
+applyCharacter();
+buildCharacterMenu();
 buildLevelMenu();
 showHome();
 syncGameChrome();
