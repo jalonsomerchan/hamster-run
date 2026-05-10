@@ -3,8 +3,18 @@ import '../css/main.css';
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
-import platformLong from '../assets/sprites/environment/environment-1.png';
-import platformShort from '../assets/sprites/environment/environment-2.png';
+import platformWoodLong from '../assets/sprites/platforms/platform-1.png';
+import platformWoodMedium from '../assets/sprites/platforms/platform-2.png';
+import platformWoodShort from '../assets/sprites/platforms/platform-3.png';
+import platformDirt from '../assets/sprites/platforms/platform-4.png';
+import platformStraw from '../assets/sprites/platforms/platform-5.png';
+import platformMushroom from '../assets/sprites/platforms/platform-6.png';
+import cloudSprite from '../assets/sprites/background/background-1.png';
+import treeSprite from '../assets/sprites/background/background-2.png';
+import hillSprite from '../assets/sprites/background/background-3.png';
+import barnSprite from '../assets/sprites/background/background-4.png';
+import moonSprite from '../assets/sprites/background/background-5.png';
+import haySprite from '../assets/sprites/background/background-6.png';
 import thistleSprite from '../assets/sprites/environment/environment-3.png';
 import grassSprite from '../assets/sprites/environment/environment-4.png';
 
@@ -30,12 +40,16 @@ const levels = [
     name: 'Pradera',
     detail: 'Saltos amplios y ritmo amable',
     tag: 'Fácil',
-    speed: 235,
-    gravity: 1850,
-    jump: 690,
-    enemyChance: 0.34,
-    gap: [110, 178],
-    width: [150, 255],
+    speed: 210,
+    gravity: 1780,
+    jump: 700,
+    enemyChance: 0.22,
+    startGap: [70, 116],
+    gap: [98, 160],
+    startWidth: [230, 320],
+    width: [185, 295],
+    startVertical: 24,
+    vertical: 58,
     palette: ['#91d8ea', '#bcebc7', '#f5cb6b'],
   },
   {
@@ -43,12 +57,16 @@ const levels = [
     name: 'Granero',
     detail: 'Más enemigos y huecos cortos',
     tag: 'Medio',
-    speed: 285,
-    gravity: 1980,
-    jump: 710,
-    enemyChance: 0.48,
-    gap: [128, 210],
-    width: [130, 230],
+    speed: 230,
+    gravity: 1880,
+    jump: 720,
+    enemyChance: 0.32,
+    startGap: [78, 126],
+    gap: [108, 178],
+    startWidth: [220, 310],
+    width: [170, 270],
+    startVertical: 28,
+    vertical: 66,
     palette: ['#7bc6d8', '#edc486', '#d4733e'],
   },
   {
@@ -56,22 +74,45 @@ const levels = [
     name: 'Noche',
     detail: 'Carrera rápida y plataformas tensas',
     tag: 'Difícil',
-    speed: 330,
-    gravity: 2080,
-    jump: 735,
-    enemyChance: 0.58,
-    gap: [148, 235],
-    width: [118, 205],
+    speed: 250,
+    gravity: 1980,
+    jump: 745,
+    enemyChance: 0.42,
+    startGap: [84, 134],
+    gap: [118, 195],
+    startWidth: [210, 300],
+    width: [160, 255],
+    startVertical: 32,
+    vertical: 74,
     palette: ['#6ea9c7', '#86c4a7', '#e7a947'],
   },
 ];
+
+const PLATFORM_HEIGHT = 40;
+const PLATFORM_ART_HEIGHT = 78;
+const LANDING_ZONE = 78;
+const START_SAFE_PLATFORMS = 7;
 
 const sprites = {
   hamster: { image: makeImage(hamsterSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
-  platformLong: makeImage(platformLong),
-  platformShort: makeImage(platformShort),
+  platforms: [
+    makeImage(platformWoodLong),
+    makeImage(platformWoodMedium),
+    makeImage(platformWoodShort),
+    makeImage(platformDirt),
+    makeImage(platformStraw),
+    makeImage(platformMushroom),
+  ],
+  background: [
+    makeImage(cloudSprite),
+    makeImage(treeSprite),
+    makeImage(hillSprite),
+    makeImage(barnSprite),
+    makeImage(moonSprite),
+    makeImage(haySprite),
+  ],
   thistle: makeImage(thistleSprite),
   grass: makeImage(grassSprite),
 };
@@ -90,6 +131,7 @@ const state = {
   last: performance.now(),
   speedBoost: 0,
   shake: 0,
+  platformCount: 0,
 };
 
 const player = {
@@ -106,6 +148,7 @@ let platforms = [];
 let peanuts = [];
 let enemies = [];
 let decor = [];
+let backgroundProps = [];
 
 function makeImage(src) {
   const image = new Image();
@@ -115,6 +158,18 @@ function makeImage(src) {
 
 function random(min, max) {
   return min + Math.random() * (max - min);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function lerp(min, max, amount) {
+  return min + (max - min) * amount;
+}
+
+function lerpRange(startRange, endRange, amount) {
+  return [lerp(startRange[0], endRange[0], amount), lerp(startRange[1], endRange[1], amount)];
 }
 
 function resize() {
@@ -158,6 +213,7 @@ function resetGame() {
   state.peanuts = 0;
   state.speedBoost = 0;
   state.shake = 0;
+  state.platformCount = 0;
 
   player.x = Math.max(58, state.width * 0.18);
   player.y = floor - player.height;
@@ -166,18 +222,17 @@ function resetGame() {
   player.grounded = false;
 
   platforms = [
-    { x: -30, y: floor, width: state.width * 0.72, height: 34, type: 'long' },
+    makePlatform(-35, floor, Math.max(340, state.width * 0.82), 0),
     {
-      x: state.width * 0.74,
-      y: floor - 24,
-      width: state.width * 0.44,
-      height: 34,
-      type: 'short',
+      ...makePlatform(Math.max(260, state.width * 0.72), floor - 8, Math.max(260, state.width * 0.62), 1),
+      starter: true,
     },
   ];
+  state.platformCount = platforms.length;
   peanuts = [];
   enemies = [];
   decor = [];
+  backgroundProps = createBackgroundProps();
   while (lastPlatformEnd() < state.width * 1.8) {
     spawnPlatform();
   }
@@ -191,39 +246,81 @@ function lastPlatformEnd() {
   return platforms.reduce((end, platform) => Math.max(end, platform.x + platform.width), 0);
 }
 
+function makePlatform(x, y, width, variant = 0) {
+  return {
+    x,
+    y,
+    width,
+    height: PLATFORM_HEIGHT,
+    variant,
+  };
+}
+
+function currentDifficulty() {
+  return clamp((state.distance - 650) / 5200, 0, 1);
+}
+
+function createBackgroundProps() {
+  const props = [];
+  const isNight = state.level.id === 'moon';
+  const candidates = isNight ? [0, 1, 4] : state.level.id === 'barn' ? [0, 1, 3, 5] : [0, 1, 2, 5];
+  for (let index = 0; index < 16; index += 1) {
+    const sprite = candidates[index % candidates.length];
+    props.push({
+      sprite,
+      x: index * random(145, 230) + random(20, 90),
+      y: random(state.height * 0.12, state.height * 0.5),
+      size: sprite === 0 ? random(88, 142) : random(74, 132),
+      speed: sprite === 0 || sprite === 4 ? random(0.08, 0.14) : random(0.16, 0.28),
+    });
+  }
+  return props;
+}
+
 function spawnPlatform() {
   const level = state.level;
   const previous = platforms[platforms.length - 1];
-  const gap = random(level.gap[0], level.gap[1]);
-  const width = random(level.width[0], Math.min(level.width[1], state.width * 0.72));
-  const yMin = state.height * 0.42;
+  const difficulty = currentDifficulty();
+  const gapRange = lerpRange(level.startGap, level.gap, difficulty);
+  const widthRange = lerpRange(level.startWidth, level.width, difficulty);
+  const maxVertical = lerp(level.startVertical, level.vertical, difficulty);
+  const gap = random(gapRange[0], Math.min(gapRange[1], state.width * 0.43));
+  const minWidth = Math.max(widthRange[0], LANDING_ZONE * 2 + player.width);
+  const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 20), state.width * 0.86);
+  const width = random(minWidth, maxWidth);
+  const yMin = state.height * 0.47;
   const yMax = state.height * 0.76;
-  const y = previous ? Math.max(yMin, Math.min(yMax, previous.y + random(-72, 86))) : yMax;
-  const platform = {
-    x: (previous ? previous.x + previous.width : 0) + gap,
-    y,
-    width,
-    height: 34,
-    type: width > 185 ? 'long' : 'short',
-  };
+  const rawDelta = random(-maxVertical * 0.72, maxVertical);
+  const jumpFriendlyDelta = gap > 155 ? Math.max(rawDelta, -maxVertical * 0.35) : rawDelta;
+  const y = previous ? clamp(previous.y + jumpFriendlyDelta, yMin, yMax) : yMax;
+  const variant = Math.floor(random(0, sprites.platforms.length));
+  const platform = makePlatform((previous ? previous.x + previous.width : 0) + gap, y, width, variant);
+  platform.index = state.platformCount;
+  state.platformCount += 1;
   platforms.push(platform);
 
-  const peanutCount = Math.random() > 0.34 ? Math.floor(random(1, 4)) : 0;
+  const peanutCount = Math.random() > 0.22 ? Math.floor(random(1, 4)) : 0;
+  const peanutStart = platform.x + Math.max(34, LANDING_ZONE * 0.55);
+  const peanutEnd = platform.x + platform.width - 42;
   for (let index = 0; index < peanutCount; index += 1) {
+    const x = clamp(peanutStart + index * 42, peanutStart, peanutEnd);
     peanuts.push({
-      x: platform.x + 28 + index * 42,
-      y: platform.y - random(76, 118),
+      x,
+      y: platform.y - random(68, 104),
       size: 28,
       taken: false,
       bob: random(0, Math.PI * 2),
     });
   }
 
-  if (Math.random() < level.enemyChance && platform.width > 122) {
+  const enemyChance = platform.index < START_SAFE_PLATFORMS ? 0 : level.enemyChance * clamp(difficulty + 0.18, 0, 1);
+  const freeSpace = platform.width - LANDING_ZONE * 2;
+  if (Math.random() < enemyChance && freeSpace > 62) {
+    const enemyX = platform.x + LANDING_ZONE + random(0, Math.max(8, freeSpace - 58));
     if (Math.random() < 0.55) {
       enemies.push({
         kind: 'enemy',
-        x: platform.x + random(48, Math.max(52, platform.width - 62)),
+        x: enemyX,
         y: platform.y - 42,
         width: 48,
         height: 39,
@@ -231,7 +328,7 @@ function spawnPlatform() {
     } else {
       enemies.push({
         kind: 'thistle',
-        x: platform.x + random(42, Math.max(44, platform.width - 44)),
+        x: enemyX,
         y: platform.y - 48,
         width: 44,
         height: 44,
@@ -241,7 +338,7 @@ function spawnPlatform() {
 
   if (Math.random() > 0.35) {
     decor.push({
-      x: platform.x + random(15, Math.max(18, platform.width - 22)),
+      x: platform.x + random(18, Math.max(20, platform.width - 30)),
       y: platform.y - 25,
       size: random(24, 34),
     });
@@ -266,8 +363,8 @@ function update(dt) {
   }
 
   state.time += dt;
-  state.speedBoost += dt * 4.2;
-  const speed = state.level.speed + Math.min(115, state.speedBoost);
+  state.speedBoost += dt * 2.6;
+  const speed = state.level.speed + Math.min(82, state.speedBoost);
   const move = speed * dt;
   state.distance += move;
   state.shake = Math.max(0, state.shake - dt * 18);
@@ -282,6 +379,13 @@ function update(dt) {
       item.x -= move;
     });
   }
+  backgroundProps.forEach((item) => {
+    item.x -= move * item.speed;
+    if (item.x < -item.size - 40) {
+      item.x = state.width + random(60, 220);
+      item.y = random(state.height * 0.1, state.height * 0.52);
+    }
+  });
 
   for (const platform of platforms) {
     const landed =
@@ -322,7 +426,7 @@ function update(dt) {
   enemies = enemies.filter((enemy) => enemy.x > -90);
   decor = decor.filter((item) => item.x > -80);
 
-  while (lastPlatformEnd() < state.width * 1.75) {
+  while (lastPlatformEnd() < state.width * 1.85) {
     spawnPlatform();
   }
 
@@ -429,15 +533,24 @@ function drawBackground(hill, sun) {
     const x = (i * 91 - (state.distance * 0.22) % 91) % (state.width + 120);
     ctx.fillRect(x - 20, state.height - 18, 52, 18);
   }
+
+  backgroundProps.forEach((item) => {
+    const image = sprites.background[item.sprite];
+    const alpha = item.sprite === 0 || item.sprite === 4 ? 0.86 : 0.72;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(image, item.x, item.y, item.size, item.size);
+  });
+  ctx.globalAlpha = 1;
 }
 
 function drawPlatform(platform) {
-  const image = platform.type === 'long' ? sprites.platformLong : sprites.platformShort;
-  const topHeight = platform.height + 18;
-  ctx.drawImage(image, platform.x - 8, platform.y - 21, platform.width + 16, topHeight);
+  const image = sprites.platforms[platform.variant % sprites.platforms.length];
+  const visualWidth = platform.width + 26;
+  const visualHeight = PLATFORM_ART_HEIGHT;
+  ctx.drawImage(image, platform.x - 13, platform.y - 28, visualWidth, visualHeight);
 
   ctx.fillStyle = 'rgba(87, 52, 25, 0.24)';
-  ctx.fillRect(platform.x + 8, platform.y + 17, platform.width - 16, 9);
+  ctx.fillRect(platform.x + 12, platform.y + platform.height - 8, platform.width - 24, 8);
 }
 
 function drawPeanut(peanut) {
