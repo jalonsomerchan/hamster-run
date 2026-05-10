@@ -1,5 +1,7 @@
 import appSource from './app.js?raw';
 import '../css/main.css';
+import './accessibility.js';
+import './sound.js';
 
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
@@ -64,7 +66,9 @@ function patchSource(source) {
     .replace(/function\s+canStomp\s*\(/g, 'function originalCanStomp(')
     .replace(/function\s+stompEnemy\s*\(/g, 'function originalStompEnemy(')
     .replace(/function\s+loseLife\s*\(/g, 'function originalLoseLife(')
-    .replace(/function\s+respawnPlayerAfterLifeLoss\s*\(/g, 'function originalRespawnPlayerAfterLifeLoss(');
+    .replace(/function\s+respawnPlayerAfterLifeLoss\s*\(/g, 'function originalRespawnPlayerAfterLifeLoss(')
+    .replace(/function\s+jump\s*\(/g, 'function originalJump(')
+    .replace(/function\s+endGame\s*\(/g, 'function originalEndGame(');
 
   if (!/function\s+itemBox\s*\(/.test(patched)) {
     patched += `\nfunction itemBox(item) {\n  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;\n  return { x: item.x, y: item.y, width: item.width || size, height: item.height || size };\n}\n`;
@@ -80,6 +84,28 @@ let lifeGhostAnimation = 0;
 let lifeGhostLast = 0;
 let lifeRespawnDelay = 0;
 let pendingRespawnPoint = null;
+let lastPeanutSoundCount = 0;
+
+function playSound(name) {
+  window.HamsterRunAudio?.play?.(name);
+}
+
+function jump() {
+  const jumpsBefore = player.jumps;
+  const modeBefore = state.mode;
+  originalJump();
+
+  if (modeBefore === 'running' && player.jumps > jumpsBefore) {
+    playSound(jumpsBefore > 0 ? 'doubleJump' : 'jump');
+  }
+}
+
+function endGame() {
+  if (state.mode === 'running') {
+    playSound('gameOver');
+  }
+  originalEndGame();
+}
 
 function canStomp(enemy, previousBottom) {
   if (!enemy || enemy.kind === 'thistle') return false;
@@ -98,6 +124,7 @@ function canStomp(enemy, previousBottom) {
 
 function stompEnemy(enemy) {
   if (!enemy || enemy.defeated) return;
+  playSound('stomp');
   enemy.defeated = true;
   enemy.defeatTime = 0.28;
   state.score += enemy.kind === 'flying' ? 180 : 140;
@@ -110,6 +137,7 @@ function stompEnemy(enemy) {
 function loseLife() {
   if (state.mode !== 'running' || state.invincible > 0 || lifeRespawnDelay > 0) return;
 
+  playSound('damage');
   pendingRespawnPoint = findSafeRespawnPoint();
   spawnLifeGhost();
   state.lives = Math.max(0, state.lives - 1);
@@ -276,7 +304,11 @@ update = function updateWithLifePatches(dt) {
     return;
   }
 
+  const peanutsBefore = state.peanuts;
   originalUpdate(dt);
+  if (state.peanuts > peanutsBefore) {
+    playSound('peanut');
+  }
   cleanupLongRunEntities();
   updatePerfProbe(dt);
 };
@@ -338,6 +370,7 @@ function setupMobileSafeControls() {
   window.addEventListener('keydown', (event) => {
     if ((event.code === 'Space' || event.code === 'ArrowUp') && state.mode === 'running') event.preventDefault();
   }, { passive: false, capture: true });
+  gameMenuButton?.addEventListener('click', () => playSound('pause'), { capture: true });
 }
 
 function renderLifeHearts() {
