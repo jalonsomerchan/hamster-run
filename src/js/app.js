@@ -89,30 +89,33 @@ const levels = [
 ];
 
 const PLATFORM_HEIGHT = 40;
-const PLATFORM_ART_HEIGHT = 78;
 const LANDING_ZONE = 78;
 const START_SAFE_PLATFORMS = 7;
+
+const platformAssets = [
+  { image: makeImage(platformWoodLong), crop: [8, 90, 240, 75], minWidth: 240 },
+  { image: makeImage(platformWoodMedium), crop: [30, 88, 195, 80], minWidth: 205 },
+  { image: makeImage(platformWoodShort), crop: [53, 94, 150, 68], minWidth: 120 },
+  { image: makeImage(platformDirt), crop: [14, 86, 227, 83], minWidth: 220 },
+  { image: makeImage(platformStraw), crop: [21, 90, 214, 76], minWidth: 220 },
+  { image: makeImage(platformMushroom), crop: [48, 92, 160, 71], minWidth: 120 },
+];
+
+const backgroundAssets = [
+  { image: makeImage(cloudSprite), crop: [27, 64, 202, 128], lane: 'sky' },
+  { image: makeImage(treeSprite), crop: [59, 46, 138, 163], lane: 'horizon' },
+  { image: makeImage(hillSprite), crop: [20, 83, 215, 90], lane: 'ground' },
+  { image: makeImage(barnSprite), crop: [15, 70, 225, 116], lane: 'horizon' },
+  { image: makeImage(moonSprite), crop: [57, 63, 142, 130], lane: 'sky' },
+  { image: makeImage(haySprite), crop: [30, 57, 195, 141], lane: 'ground' },
+];
 
 const sprites = {
   hamster: { image: makeImage(hamsterSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
-  platforms: [
-    makeImage(platformWoodLong),
-    makeImage(platformWoodMedium),
-    makeImage(platformWoodShort),
-    makeImage(platformDirt),
-    makeImage(platformStraw),
-    makeImage(platformMushroom),
-  ],
-  background: [
-    makeImage(cloudSprite),
-    makeImage(treeSprite),
-    makeImage(hillSprite),
-    makeImage(barnSprite),
-    makeImage(moonSprite),
-    makeImage(haySprite),
-  ],
+  platforms: platformAssets,
+  background: backgroundAssets,
   thistle: makeImage(thistleSprite),
   grass: makeImage(grassSprite),
 };
@@ -263,15 +266,16 @@ function currentDifficulty() {
 function createBackgroundProps() {
   const props = [];
   const isNight = state.level.id === 'moon';
-  const candidates = isNight ? [0, 1, 4] : state.level.id === 'barn' ? [0, 1, 3, 5] : [0, 1, 2, 5];
-  for (let index = 0; index < 16; index += 1) {
+  const candidates = isNight ? [4, 0, 1] : state.level.id === 'barn' ? [0, 3, 1, 5] : [0, 1, 2, 5];
+  for (let index = 0; index < 14; index += 1) {
     const sprite = candidates[index % candidates.length];
+    const lane = sprites.background[sprite].lane;
     props.push({
       sprite,
-      x: index * random(145, 230) + random(20, 90),
-      y: random(state.height * 0.12, state.height * 0.5),
-      size: sprite === 0 ? random(88, 142) : random(74, 132),
-      speed: sprite === 0 || sprite === 4 ? random(0.08, 0.14) : random(0.16, 0.28),
+      lane,
+      x: index * random(170, 255) + random(20, 110),
+      size: lane === 'sky' ? random(78, 128) : lane === 'horizon' ? random(86, 138) : random(96, 160),
+      speed: lane === 'sky' ? random(0.06, 0.12) : lane === 'horizon' ? random(0.16, 0.23) : random(0.25, 0.34),
     });
   }
   return props;
@@ -293,7 +297,8 @@ function spawnPlatform() {
   const rawDelta = random(-maxVertical * 0.72, maxVertical);
   const jumpFriendlyDelta = gap > 155 ? Math.max(rawDelta, -maxVertical * 0.35) : rawDelta;
   const y = previous ? clamp(previous.y + jumpFriendlyDelta, yMin, yMax) : yMax;
-  const variant = Math.floor(random(0, sprites.platforms.length));
+  const variantPool = width > 250 ? [0, 3, 4] : width > 190 ? [1, 3, 4] : [2, 5];
+  const variant = variantPool[Math.floor(random(0, variantPool.length))];
   const platform = makePlatform((previous ? previous.x + previous.width : 0) + gap, y, width, variant);
   platform.index = state.platformCount;
   state.platformCount += 1;
@@ -383,7 +388,6 @@ function update(dt) {
     item.x -= move * item.speed;
     if (item.x < -item.size - 40) {
       item.x = state.width + random(60, 220);
-      item.y = random(state.height * 0.1, state.height * 0.52);
     }
   });
 
@@ -535,22 +539,36 @@ function drawBackground(hill, sun) {
   }
 
   backgroundProps.forEach((item) => {
-    const image = sprites.background[item.sprite];
-    const alpha = item.sprite === 0 || item.sprite === 4 ? 0.86 : 0.72;
-    ctx.globalAlpha = alpha;
-    ctx.drawImage(image, item.x, item.y, item.size, item.size);
+    const asset = sprites.background[item.sprite];
+    const [sx, sy, sw, sh] = asset.crop;
+    const aspect = sh / sw;
+    const width = item.size;
+    const height = item.size * aspect;
+    const y = backgroundLaneY(item.lane, height, horizon, item.x);
+    ctx.globalAlpha = item.lane === 'sky' ? 0.86 : 0.76;
+    ctx.drawImage(asset.image, sx, sy, sw, sh, item.x, y, width, height);
   });
   ctx.globalAlpha = 1;
 }
 
-function drawPlatform(platform) {
-  const image = sprites.platforms[platform.variant % sprites.platforms.length];
-  const visualWidth = platform.width + 26;
-  const visualHeight = PLATFORM_ART_HEIGHT;
-  ctx.drawImage(image, platform.x - 13, platform.y - 28, visualWidth, visualHeight);
+function backgroundLaneY(lane, height, horizon, x) {
+  if (lane === 'sky') {
+    return state.height * 0.1 + Math.sin(x * 0.018) * 10;
+  }
+  if (lane === 'horizon') {
+    return horizon - height * 0.86 + 18;
+  }
+  return horizon - height * 0.28 + 34;
+}
 
-  ctx.fillStyle = 'rgba(87, 52, 25, 0.24)';
-  ctx.fillRect(platform.x + 12, platform.y + platform.height - 8, platform.width - 24, 8);
+function drawPlatform(platform) {
+  const asset = sprites.platforms[platform.variant % sprites.platforms.length];
+  const [sx, sy, sw, sh] = asset.crop;
+  const visualWidth = Math.max(platform.width + 18, asset.minWidth);
+  const visualHeight = clamp(visualWidth * (sh / sw), 48, 72);
+  const x = platform.x - (visualWidth - platform.width) / 2;
+  const y = platform.y - 13;
+  ctx.drawImage(asset.image, sx, sy, sw, sh, x, y, visualWidth, visualHeight);
 }
 
 function drawPeanut(peanut) {
