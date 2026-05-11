@@ -65,8 +65,9 @@ const importedValues = {
 };
 
 function tuneBaseGameSource(source) {
-  return source.replace(
-    `platforms = [
+  return source
+    .replace(
+      `platforms = [
     makePlatform(-35, floor, Math.max(340, state.width * 0.82), state.level.platformVariant),
     {
       ...makePlatform(
@@ -78,13 +79,36 @@ function tuneBaseGameSource(source) {
       starter: true,
     },
   ];`,
-    `platforms = [
+      `platforms = [
     {
       ...makePlatform(-35, floor, Math.max(360, state.width * 0.92), state.level.platformVariant),
       starter: true,
     },
   ];`,
-  );
+    )
+    .replace(
+      `const scripted = {
+    2: { gap: 64, width: 330, lane: 2, prompt: 'Toca para saltar', peanuts: 2 },
+    3: { gap: 132, width: 300, lane: 2, prompt: 'Salta huecos', peanuts: 2 },
+    4: { gap: 154, width: 260, lane: 1, prompt: 'Doble salto', heart: true },
+    5: { gap: 100, width: 330, lane: 2, prompt: 'Evita enemigos', enemy: 'ground' },
+    6: { gap: 116, width: 330, lane: 2, prompt: 'Písalo desde arriba', enemy: 'chestnut', peanuts: 1 },
+    7: { gap: 92, width: 340, lane: 1, prompt: 'Sigue corriendo', heart: true, peanuts: 2 },
+  };`,
+      `const scripted = {
+    2: { gap: 74, width: 340, lane: 2, prompt: 'Toca para saltar', peanuts: 2 },
+    3: { gap: 126, width: 330, lane: 2, prompt: 'Salta el hueco', peanuts: 2 },
+    4: { gap: 154, width: 300, lane: 1, prompt: 'Doble salto', heart: true },
+    5: { gap: 112, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
+    6: { gap: 156, width: 315, lane: 1, prompt: 'Usa los saltos extra', peanuts: 2 },
+    7: { gap: 124, width: 350, lane: 2, prompt: 'Rojo: corres más', powerUp: 'speed' },
+    8: { gap: 150, width: 340, lane: 2, prompt: 'Controla el turbo', peanuts: 2 },
+    9: { gap: 124, width: 350, lane: 1, prompt: 'Amarillo: invencible', powerUp: 'invincible' },
+    10: { gap: 118, width: 350, lane: 2, prompt: 'Evita enemigos', enemy: 'ground' },
+    11: { gap: 126, width: 340, lane: 2, prompt: 'Písalo desde arriba', enemy: 'chestnut', peanuts: 1 },
+    12: { gap: 104, width: 350, lane: 1, prompt: 'Mira el contador arriba', heart: true, peanuts: 2 },
+  };`,
+    );
 }
 
 function inlineBootstrapImports(source) {
@@ -107,17 +131,11 @@ function fixGeneratedPowerUpsSource(source) {
   10: { gap: 112, width: 340, lane: 2, prompt: 'Amarillo: invencible', powerUp: 'invincible', enemy: 'ground' },
   11: { gap: 102, width: 340, lane: 1, prompt: 'Mira el contador arriba', peanuts: 2 },
 };`,
-      `const TUTORIAL_POWER_UPS = {
-  3: { gap: 112, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
-  4: { gap: 132, width: 320, lane: 1, prompt: 'Practica esos saltos', peanuts: 2 },
-  5: { gap: 128, width: 340, lane: 2, prompt: 'Rojo: corres más', powerUp: 'speed' },
-  6: { gap: 150, width: 330, lane: 2, prompt: 'Controla el turbo', peanuts: 2 },
-  7: { gap: 134, width: 340, lane: 1, prompt: 'Amarillo: invencible', powerUp: 'invincible' },
-  8: { gap: 142, width: 340, lane: 2, prompt: 'Pasa brillando', enemy: 'ground', peanuts: 1 },
-  9: { gap: 124, width: 330, lane: 1, prompt: 'Mira el contador arriba', heart: true },
-};`,
+      `const TUTORIAL_POWER_UPS = {};`,
     )
-    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.56\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.36);')
+    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.56\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.18);')
+    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.36\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.18);')
+    .replace(/const yOffset = 92;/g, `const yOffset = state.level?.tutorial ? 58 : 92;`)
     .replace(/roundRect\(ctx,/g, 'powerUpRoundRect(ctx,')
     .replace(/function roundRect\(targetCtx,/g, 'function powerUpRoundRect(targetCtx,');
 }
