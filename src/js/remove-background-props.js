@@ -81,12 +81,9 @@ function isLargeLegacyRect(ctx, x, y, width, height) {
 }
 
 function clearGameCanvas(ctx) {
-  const canvasWidth = ctx.canvas.clientWidth || ctx.canvas.width;
-  const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
-
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+  ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.restore();
 }
 
