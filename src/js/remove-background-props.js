@@ -18,9 +18,17 @@ const OLD_BACKGROUND_FILL_COLORS = new Set([
   '#9edba8',
   '#aee9bd',
   '#bcebc7',
+  '#91d8ea',
+  '#7fd2ee',
+  '#b7edc8',
+  '#78c6df',
+  '#f0cc8c',
+  '#556fa7',
+  '#77b6c9',
+  '#f5cb6b',
 ]);
 
-const LEGACY_BACKGROUND_COLOR_RE = /(?:rgb\(\s*(?:7[0-9]|8[0-9]|9[0-9]|1[0-9]{2})\s*,\s*(?:1[3-9][0-9]|2[0-5][0-9])\s*,\s*(?:7[0-9]|8[0-9]|9[0-9]|1[0-9]{2})\s*\)|rgba\(\s*(?:7[0-9]|8[0-9]|9[0-9]|1[0-9]{2})\s*,\s*(?:1[3-9][0-9]|2[0-5][0-9])\s*,\s*(?:7[0-9]|8[0-9]|9[0-9]|1[0-9]{2})\s*,)/i;
+const LEGACY_BACKGROUND_COLOR_RE = /(?:rgb\(\s*(?:7[0-9]|8[0-9]|9[0-9]|1[0-9]{2}|2[0-2][0-9])\s*,\s*(?:1[2-9][0-9]|2[0-5][0-9])\s*,\s*(?:6[0-9]|7[0-9]|8[0-9]|9[0-9]|1[0-9]{2}|2[0-5][0-9])\s*\)|rgba\(\s*(?:7[0-9]|8[0-9]|9[0-9]|1[0-9]{2}|2[0-2][0-9])\s*,\s*(?:1[2-9][0-9]|2[0-5][0-9])\s*,\s*(?:6[0-9]|7[0-9]|8[0-9]|9[0-9]|1[0-9]{2}|2[0-5][0-9])\s*,)/i;
 
 function isGameCanvasContext(ctx) {
   return ctx?.canvas?.matches?.(GAME_CANVAS_SELECTOR);
@@ -41,7 +49,12 @@ function isCanvasGradient(value) {
 }
 
 function isDecorativeBackgroundImage(source) {
-  return DECORATIVE_IMAGE_RE.test(imageSourceOf(source));
+  const src = imageSourceOf(source);
+  if (DECORATIVE_IMAGE_RE.test(src)) return true;
+
+  // Los sprites del fondo antiguo son tiles pequeños de 256x256. Se filtran solo
+  // cuando se dibujan en la parte alta/media del canvas; no afecta a plataformas.
+  return source?.naturalWidth === 256 && source?.naturalHeight === 256;
 }
 
 function isLegacyBackgroundStyle(value) {
@@ -57,12 +70,28 @@ function isOldBackgroundPaint(ctx) {
   return isLegacyBackgroundStyle(ctx.fillStyle) || isLegacyBackgroundStyle(ctx.strokeStyle);
 }
 
-function isLargeLegacyBackgroundRect(ctx, x, y, width, height) {
-  if (!isGameCanvasContext(ctx) || !isLegacyBackgroundStyle(ctx.fillStyle)) return false;
+function isLegacySkyOrGroundRect(ctx, x, y, width, height) {
+  if (!isGameCanvasContext(ctx)) return false;
 
   const canvasWidth = ctx.canvas.clientWidth || ctx.canvas.width;
   const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
-  return width >= canvasWidth * 0.45 && height >= canvasHeight * 0.08 && y >= canvasHeight * 0.25;
+  const isWide = width >= canvasWidth * 0.4;
+  const isTall = height >= canvasHeight * 0.06;
+  const isBackgroundArea = y <= canvasHeight * 0.88;
+
+  return isWide && isTall && isBackgroundArea && isLegacyBackgroundStyle(ctx.fillStyle);
+}
+
+function isDecorativeDrawImage(ctx, image, args) {
+  if (!isGameCanvasContext(ctx) || !isDecorativeBackgroundImage(image)) return false;
+
+  const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
+  const destinationY = args.length >= 8 ? Number(args[5]) : Number(args[1]);
+  const destinationHeight = args.length >= 8 ? Number(args[7]) : Number(args[3] || image?.naturalHeight || 0);
+
+  // Evita quitar accidentalmente un sprite jugable: solo bloquea imágenes de fondo
+  // colocadas como paisaje, no cosas dibujadas en la zona baja de juego.
+  return destinationY < canvasHeight * 0.88 || destinationHeight > canvasHeight * 0.12;
 }
 
 function installBackgroundPropFilter() {
@@ -76,7 +105,7 @@ function installBackgroundPropFilter() {
   proto.__hamsterBackgroundPropsRemoved = true;
 
   proto.drawImage = function drawImageWithoutBackgroundProps(image, ...args) {
-    if (isGameCanvasContext(this) && isDecorativeBackgroundImage(image)) {
+    if (isDecorativeDrawImage(this, image, args)) {
       return;
     }
 
@@ -100,7 +129,7 @@ function installBackgroundPropFilter() {
   };
 
   proto.fillRect = function fillRectWithoutOldBackground(x, y, width, height) {
-    if (isLargeLegacyBackgroundRect(this, x, y, width, height)) {
+    if (isLegacySkyOrGroundRect(this, x, y, width, height)) {
       return;
     }
 
