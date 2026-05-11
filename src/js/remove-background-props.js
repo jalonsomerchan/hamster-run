@@ -38,6 +38,11 @@ const LEGACY_BACKGROUND_COLORS = new Set([
   '#e7a947',
 ]);
 
+const frameState = {
+  id: 0,
+  cleanedFrame: -1,
+};
+
 function isGameCanvasContext(ctx) {
   return ctx?.canvas?.matches?.(GAME_CANVAS_SELECTOR);
 }
@@ -85,6 +90,26 @@ function clearGameCanvas(ctx) {
   ctx.restore();
 }
 
+function clearGameCanvasOncePerFrame(ctx) {
+  if (!isGameCanvasContext(ctx)) return;
+  if (frameState.cleanedFrame === frameState.id) return;
+
+  frameState.cleanedFrame = frameState.id;
+  clearGameCanvas(ctx);
+}
+
+function installFrameTracker() {
+  if (window.__hamsterFrameTrackerInstalled) return;
+  window.__hamsterFrameTrackerInstalled = true;
+
+  const nativeRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (callback) => nativeRequestAnimationFrame((time) => {
+    frameState.id += 1;
+    frameState.cleanedFrame = -1;
+    callback(time);
+  });
+}
+
 function installBackgroundPropFilter() {
   const proto = CanvasRenderingContext2D.prototype;
   if (proto.__hamsterSafeBackgroundPropsRemoved) return;
@@ -100,15 +125,17 @@ function installBackgroundPropFilter() {
       return;
     }
 
+    clearGameCanvasOncePerFrame(this);
     return nativeDrawImage.call(this, image, ...args);
   };
 
   proto.fill = function fillWithoutLegacyBackground(...args) {
     if (isLegacyBackgroundPaint(this)) {
-      clearGameCanvas(this);
+      clearGameCanvasOncePerFrame(this);
       return;
     }
 
+    clearGameCanvasOncePerFrame(this);
     return nativeFill.apply(this, args);
   };
 
@@ -117,17 +144,20 @@ function installBackgroundPropFilter() {
       return;
     }
 
+    clearGameCanvasOncePerFrame(this);
     return nativeStroke.apply(this, args);
   };
 
   proto.fillRect = function fillRectWithoutLegacyBackground(x, y, width, height) {
     if (isLargeLegacyRect(this, x, y, width, height)) {
-      clearGameCanvas(this);
+      clearGameCanvasOncePerFrame(this);
       return;
     }
 
+    clearGameCanvasOncePerFrame(this);
     return nativeFillRect.call(this, x, y, width, height);
   };
 }
 
+installFrameTracker();
 installBackgroundPropFilter();
