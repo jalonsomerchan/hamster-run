@@ -1,10 +1,9 @@
-const BACKGROUND_MODULES = import.meta.glob('../assets/background/*.{png,jpg,jpeg,webp,avif}', {
-  eager: true,
-  query: '?url',
-  import: 'default',
-});
+import background1 from '../assets/background/background1.png';
+import background2 from '../assets/background/background2.png';
+import background3 from '../assets/background/background3.png';
+import background4 from '../assets/background/background4.png';
 
-const backgroundUrls = Object.values(BACKGROUND_MODULES).filter(Boolean);
+const backgroundUrls = [background1, background2, background3, background4].filter(Boolean);
 const storageKey = 'hamster-run-random-background-v1';
 const canvasSelector = '#game';
 const state = {
