@@ -124,6 +124,17 @@ function inlineBootstrapImports(source) {
 function fixGeneratedPowerUpsSource(source) {
   return source
     .replace(/const START_SAFE_PLATFORMS = 7;/g, 'const START_SAFE_PLATFORMS = 4;')
+    .replace(/const mode = selectedMode\(\);\n  const records = readRecords\(\);\n  const key = mode\.id \+ ':' \+ levelId;/g, `const mode = selectedMode();
+  const records = readRecords();
+  const key = mode.id + ':' + (mode.difficultyId || 'medium') + ':' + levelId;`)
+    .replace(/return readRecords\(\)\[selectedMode\(\)\.id \+ ':' \+ levelId\] \|\| 0;/g, `const mode = selectedMode();
+  const records = readRecords();
+  return records[mode.id + ':' + (mode.difficultyId || 'medium') + ':' + levelId] || records[mode.id + ':' + levelId] || 0;`)
+    .replace(/return clamp\(base \+ \(selectedMode\(\)\.difficultyBoost \|\| 0\), 0, 1\);/g, `const mode = selectedMode();
+  const timeRamp = clamp(state.time / 95, 0, 0.34);
+  return clamp(base + timeRamp + (mode.difficultyBoost || 0), 0, 1);`)
+    .replace(/withModeRandom\(\(\) => originalResetGame\(\)\);/g, `withModeRandom(() => originalResetGame());
+  applySelectedDifficultyToLevel();`)
     .replace(
       `const TUTORIAL_POWER_UPS = {
   8: { gap: 94, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
@@ -139,7 +150,18 @@ function fixGeneratedPowerUpsSource(source) {
     .replace(/function spawnPowerUp\(platform, type, ratio = 0\.5\) \{/g, 'function spawnPowerUp(platform, type, ratio = 0.5, tutorialPrompt = null) {')
     .replace(/const yOffset = 92;/g, `const yOffset = state.level?.tutorial ? 86 : 92;`)
     .replace(/powerUps\.push\(\{ type, x, y: platform\.y - yOffset, size, taken: false, bob: random\(0, Math\.PI \* 2\), platformId: platform\.id, yOffset, pulse: 0 \}\);/g, `powerUps.push({ type, x, y: platform.y - yOffset, size, taken: false, bob: random(0, Math.PI * 2), platformId: platform.id, yOffset, pulse: 0, tutorialPrompt });`)
-    .replace(/function drawPowerUp\(powerUp\) \{/g, `function drawPowerUpPrompt(powerUp, cx, cy) {
+    .replace(/function drawPowerUp\(powerUp\) \{/g, `function applySelectedDifficultyToLevel() {
+  const mode = selectedMode();
+  if (!state.level || state.level.__difficultyApplied) return;
+  state.level = {
+    ...state.level,
+    speed: Math.max(150, state.level.speed + (mode.speedBoost || 0)),
+    enemyChance: clamp((state.level.enemyChance || 0) + (mode.enemyBoost || 0), 0, 0.72),
+    __difficultyApplied: true,
+  };
+}
+
+function drawPowerUpPrompt(powerUp, cx, cy) {
   if (!powerUp.tutorialPrompt) return;
   ctx.save();
   ctx.font = '800 15px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
