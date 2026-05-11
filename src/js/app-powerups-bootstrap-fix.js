@@ -160,7 +160,23 @@ function fixGeneratedPowerUpsSource(source) {
 }
 
 function drawPowerUp(powerUp) {`)
-    .replace(/ctx\.restore\(\);\n\}/g, 'ctx.restore();\n  drawPowerUpPrompt(powerUp, cx, cy);\n}', 1)
+    .replace(
+      `ctx.beginPath();
+  ctx.arc(cx - radius * 0.34, cy - radius * 0.36, radius * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawPowerUpTimerOverlay()`,
+      `ctx.beginPath();
+  ctx.arc(cx - radius * 0.34, cy - radius * 0.36, radius * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  drawPowerUpPrompt(powerUp, cx, cy);
+}
+
+function drawPowerUpTimerOverlay`,
+    )
     .replace(/roundRect\(ctx,/g, 'powerUpRoundRect(ctx,')
     .replace(/function roundRect\(targetCtx,/g, 'function powerUpRoundRect(targetCtx,');
 }
