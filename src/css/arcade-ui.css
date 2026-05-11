@@ -542,3 +542,159 @@ h2 {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* Production pass: tighter game UI, cleaner copy, stronger screen hierarchy. */
+.overlay {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background:
+    linear-gradient(180deg, rgba(9, 18, 26, 0.58), rgba(12, 20, 22, 0.86)),
+    radial-gradient(circle at 50% 8%, rgba(255, 189, 67, 0.32), transparent 34%) !important;
+}
+
+.panel {
+  flex: 0 1 560px !important;
+  min-width: 0 !important;
+  width: calc(100vw - 56px) !important;
+  max-width: min(560px, calc(100vw - 56px)) !important;
+  border-width: 3px !important;
+  border-color: rgba(255, 247, 207, 0.94) !important;
+  border-radius: 18px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 20%),
+    linear-gradient(180deg, #fff3c4 0%, #ffd36e 100%) !important;
+  box-shadow:
+    0 6px 0 #7d4022,
+    0 18px 48px rgba(0, 0, 0, 0.38) !important;
+}
+
+.panel::before {
+  inset: 8px !important;
+  border-style: solid !important;
+  border-color: rgba(54, 31, 15, 0.12) !important;
+  border-radius: 12px !important;
+}
+
+.screen-header {
+  margin-bottom: 10px !important;
+}
+
+.eyebrow {
+  border-radius: 10px !important;
+  color: #7d2e16 !important;
+  letter-spacing: 0 !important;
+}
+
+h1,
+h2,
+.mode-card strong,
+.level-card strong,
+.character-card span,
+.primary-button,
+.ghost-button,
+.game-controls button {
+  letter-spacing: 0 !important;
+}
+
+h1,
+h2 {
+  overflow-wrap: anywhere !important;
+  text-shadow:
+    0 2px 0 rgba(255, 248, 204, 0.95),
+    0 5px 0 rgba(95, 43, 20, 0.1) !important;
+}
+
+h1 {
+  font-size: clamp(2rem, 8vw, 3.4rem) !important;
+}
+
+h2 {
+  font-size: clamp(1.9rem, 8.6vw, 3.1rem) !important;
+}
+
+.copy,
+.hint,
+.selection-step-help {
+  color: #57321a !important;
+  font-weight: 780 !important;
+}
+
+#heroPreview {
+  width: min(72vw, 250px) !important;
+  height: clamp(124px, 24dvh, 176px) !important;
+  margin: 8px auto 18px !important;
+}
+
+.primary-button,
+.ghost-button,
+.game-controls button {
+  border-radius: 14px !important;
+  min-height: 52px !important;
+  text-transform: none !important;
+}
+
+.primary-button {
+  background: linear-gradient(180deg, #ffb13d 0%, #f06a24 58%, #cb382b 100%) !important;
+}
+
+.ghost-button,
+.game-controls button {
+  background: linear-gradient(180deg, #47c9ff 0%, #1488dc 58%, #0f579e 100%) !important;
+}
+
+.mode-card,
+.character-card,
+.level-card {
+  border-radius: 14px !important;
+  min-height: 74px !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), transparent 34%),
+    linear-gradient(135deg, #fff0b0 0%, #ffbf59 100%) !important;
+}
+
+.mode-card::after,
+.character-card::after,
+.level-card::after {
+  border-radius: 10px !important;
+}
+
+.selection-progress span {
+  border-radius: 10px !important;
+}
+
+.mode-card[aria-pressed='true'],
+.character-card[aria-pressed='true'],
+.level-card[aria-pressed='true'],
+.mode-card[aria-current='true'],
+.selection-progress span[aria-current='step'] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.44), transparent 34%),
+    linear-gradient(135deg, #9af66f 0%, #35c851 56%, #159043 100%) !important;
+}
+
+.hud div,
+.result-grid div {
+  border-radius: 12px !important;
+}
+
+.result-grid {
+  margin: 16px 0 !important;
+}
+
+@media (max-width: 430px) {
+  .panel {
+    border-radius: 16px !important;
+    transform: translateX(-14px) !important;
+  }
+
+  .screen-header {
+    margin-bottom: 6px !important;
+  }
+
+  .mode-card,
+  .character-card,
+  .level-card {
+    border-radius: 12px !important;
+  }
+}

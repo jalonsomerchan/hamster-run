@@ -59,7 +59,7 @@ const levels = [
   {
     id: 'meadow',
     name: 'Pradera',
-    detail: 'Saltos amplios y ritmo amable',
+    detail: 'Ritmo suave',
     tag: 'Fácil',
     speed: 210,
     gravity: 1780,
@@ -80,7 +80,7 @@ const levels = [
   {
     id: 'clover',
     name: 'Tréboles',
-    detail: 'Plataformas con hojas y saltos suaves',
+    detail: 'Saltos cómodos',
     tag: 'Fácil',
     speed: 218,
     gravity: 1810,
@@ -101,7 +101,7 @@ const levels = [
   {
     id: 'bridge',
     name: 'Puentes',
-    detail: 'Maderos cortos con más atención',
+    detail: 'Más precisión',
     tag: 'Medio',
     speed: 226,
     gravity: 1850,
@@ -122,7 +122,7 @@ const levels = [
   {
     id: 'cookie',
     name: 'Galleta',
-    detail: 'Suelo blandito y recorrido tranquilo',
+    detail: 'Ruta estable',
     tag: 'Medio',
     speed: 232,
     gravity: 1880,
@@ -143,7 +143,7 @@ const levels = [
   {
     id: 'straw',
     name: 'Paja',
-    detail: 'Granero con enemigos inquietos',
+    detail: 'Más enemigos',
     tag: 'Medio',
     speed: 240,
     gravity: 1930,
@@ -164,7 +164,7 @@ const levels = [
   {
     id: 'moon',
     name: 'Setas',
-    detail: 'Noche brillante con vuelos sorpresa',
+    detail: 'Saltos exigentes',
     tag: 'Difícil',
     speed: 250,
     gravity: 1980,
@@ -251,9 +251,9 @@ const sprites = {
 };
 
 const characters = [
-  { id: 'hamster', name: 'Hamster rojo', sprite: sprites.hamster, width: 62, height: 54 },
-  { id: 'blueHamster', name: 'Hamster azul', sprite: sprites.blueHamster, width: 62, height: 54 },
-  { id: 'tasmanian', name: 'Demonio', sprite: sprites.tasmanian, width: 66, height: 56 },
+  { id: 'hamster', name: 'Rojo', sprite: sprites.hamster, width: 62, height: 54 },
+  { id: 'blueHamster', name: 'Azul', sprite: sprites.blueHamster, width: 62, height: 54 },
+  { id: 'tasmanian', name: 'Turbo', sprite: sprites.tasmanian, width: 66, height: 56 },
 ];
 
 const state = {
@@ -736,7 +736,7 @@ function syncGameChrome() {
 async function shareGame() {
   const shareData = {
     title: 'Hamster Run',
-    text: 'Juega a Hamster Run y atrapa cacahuetes sin caerte.',
+    text: 'Corre en Hamster Run y supera tu marca.',
     url: window.location.href,
   };
   if (navigator.share) {
@@ -828,6 +828,14 @@ function update(dt) {
       heart.taken = true;
       state.lives = Math.min(6, state.lives + 1);
       state.score += 110;
+      bursts.push({
+        x: heart.x + heart.size / 2,
+        y: heart.y + heart.size / 2,
+        ttl: 0.38,
+        life: 0.38,
+        scale: 0.58,
+        color: '#ff3f66',
+      });
     }
   }
 
@@ -887,7 +895,7 @@ function updateMovingPlatforms(dt, wasGrounded) {
     platform.dy = platform.y - previousY;
   });
 
-  for (const item of [...peanuts, ...enemies, ...decor]) {
+  for (const item of [...peanuts, ...hearts, ...enemies, ...decor]) {
     if (item.platformId === undefined || item.kind === 'flying') {
       continue;
     }
@@ -947,6 +955,16 @@ function peanutBox(peanut) {
     y: peanut.y,
     width: peanut.size,
     height: peanut.size,
+  };
+}
+
+function itemBox(item) {
+  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;
+  return {
+    x: item.x,
+    y: item.y,
+    width: item.width || size,
+    height: item.height || size,
   };
 }
 
@@ -1011,6 +1029,7 @@ function draw() {
 
     platforms.forEach(drawPlatform);
     peanuts.forEach(drawPeanut);
+    hearts.forEach(drawHeart);
     enemies.forEach(drawEnemy);
     bursts.forEach(drawBurst);
     drawHamster();
@@ -1126,6 +1145,29 @@ function drawPeanut(peanut) {
   drawSheetFrame(sprites.peanut, sx, sy, peanut.x, peanut.y + bounce, peanut.size, peanut.size * 1.18);
 }
 
+function drawHeart(heart) {
+  const frame = Math.floor(state.time * 7 + heart.bob) % 4;
+  const sx = (frame % sprites.heart.cols) * sprites.heart.cell;
+  const sy = Math.floor(frame / sprites.heart.cols) * sprites.heart.cell;
+  const bounce = Math.sin(state.time * 5.2 + heart.bob) * 5;
+  const pulse = 1 + Math.sin(state.time * 7.5 + heart.bob) * 0.08;
+  const size = heart.size * pulse;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(255, 48, 92, 0.55)';
+  ctx.shadowBlur = 14;
+  drawSheetFrame(
+    sprites.heart,
+    sx,
+    sy,
+    heart.x - (size - heart.size) / 2,
+    heart.y + bounce - (size - heart.size) / 2,
+    size,
+    size,
+  );
+  ctx.restore();
+}
+
 function drawEnemy(enemy) {
   if (enemy.kind === 'thistle') {
     ctx.drawImage(sprites.thistle, enemy.x - 4, enemy.y - 5, enemy.width + 8, enemy.height + 8);
@@ -1155,7 +1197,8 @@ function drawEnemy(enemy) {
 }
 
 function drawBurst(burst) {
-  const progress = 1 - burst.life / 0.34;
+  const ttl = burst.ttl || 0.38;
+  const progress = clamp(1 - burst.life / ttl, 0, 1);
   ctx.save();
   ctx.globalAlpha = Math.max(0, 1 - progress);
   ctx.translate(burst.x, burst.y);
@@ -1167,7 +1210,7 @@ function drawBurst(burst) {
     ctx.moveTo(Math.cos(angle) * 8, Math.sin(angle) * 8);
     ctx.lineTo(Math.cos(angle) * 20, Math.sin(angle) * 20);
   }
-  ctx.strokeStyle = '#e66b2f';
+  ctx.strokeStyle = burst.color || '#e66b2f';
   ctx.lineWidth = 4;
   ctx.stroke();
   ctx.restore();
@@ -1206,6 +1249,38 @@ function drawHeroPreview() {
   const character = selectedCharacter();
   const frame = Math.floor(performance.now() / 95) % 4;
   const sx = frame * character.sprite.cell;
+  const heartFrame = Math.floor(performance.now() / 150) % 4;
+  const heartSx = (heartFrame % sprites.heart.cols) * sprites.heart.cell;
+  const heartSy = Math.floor(heartFrame / sprites.heart.cols) * sprites.heart.cell;
+  const peanutFrame = Math.floor(performance.now() / 130) % 4;
+  const peanutSx = (peanutFrame % sprites.peanut.cols) * sprites.peanut.cell;
+  const peanutSy = Math.floor(peanutFrame / sprites.peanut.cols) * sprites.peanut.cell;
+
+  heroCtx.save();
+  heroCtx.globalAlpha = 0.95;
+  heroCtx.drawImage(
+    sprites.heart.image,
+    heartSx,
+    heartSy,
+    sprites.heart.cell,
+    sprites.heart.cell,
+    rect.width * 0.08,
+    rect.height * 0.16,
+    rect.width * 0.18,
+    rect.width * 0.18,
+  );
+  heroCtx.drawImage(
+    sprites.peanut.image,
+    peanutSx,
+    peanutSy,
+    sprites.peanut.cell,
+    sprites.peanut.cell,
+    rect.width * 0.75,
+    rect.height * 0.28,
+    rect.width * 0.16,
+    rect.width * 0.19,
+  );
+  heroCtx.restore();
   heroCtx.drawImage(
     character.sprite.image,
     sx,
@@ -1257,7 +1332,7 @@ startButton.addEventListener('click', resetGame);
 newGameButton.addEventListener('click', showLevelSelect);
 backHomeButton.addEventListener('click', showHome);
 aboutButton.addEventListener('click', () => {
-  window.alert('Hamster Run: salta, haz doble salto, recoge cacahuetes y pisa enemigos de tierra para ganar puntos extra.');
+  window.alert('Toca para saltar. Segundo toque: doble salto. Recoge nueces y corazones, evita enemigos.');
 });
 shareButton.addEventListener('click', () => {
   shareGame().catch(() => {

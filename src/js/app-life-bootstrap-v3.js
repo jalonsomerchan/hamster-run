@@ -324,9 +324,11 @@ update = function updateWithPatches(dt) {
   }
 
   const peanutsBefore = state.peanuts;
+  const livesBefore = state.lives;
   withModeRandom(() => originalUpdate(dt));
   updateModeTimer(dt);
   if (state.peanuts > peanutsBefore) playSound('peanut');
+  if (state.lives > livesBefore) playSound('heart');
   cleanupLongRunEntities();
   updatePerfProbe(dt);
 };

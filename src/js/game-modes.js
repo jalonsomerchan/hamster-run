@@ -8,7 +8,7 @@ const modes = [
   {
     id: 'endless',
     name: 'Endless',
-    detail: 'Corre todo lo que puedas. El modo clásico principal.',
+    detail: 'Sin límite. Aguanta y suma.',
     tag: 'Clásico',
     timeLimit: null,
     seed: null,
@@ -16,7 +16,7 @@ const modes = [
   {
     id: 'timeAttack',
     name: 'Contrarreloj',
-    detail: 'Tienes 60 segundos para lograr la mayor puntuación.',
+    detail: '60 segundos. Máxima puntuación.',
     tag: '60s',
     timeLimit: 60,
     seed: null,
@@ -24,7 +24,7 @@ const modes = [
   {
     id: 'challenge',
     name: 'Desafío',
-    detail: 'Ruta reproducible con semilla fija para comparar marcas.',
+    detail: 'Misma ruta. Mejor marca.',
     tag: 'Fijo',
     timeLimit: null,
     seed: 'hamster-run-daily-challenge-v1',
@@ -209,7 +209,7 @@ function ensureModeSelector() {
   section.innerHTML = `
     <p class="eyebrow">Modo</p>
     <div class="mode-grid" id="modeGrid"></div>
-    <p class="selection-step-help">Elige un modo para continuar. No hay modo preseleccionado.</p>
+    <p class="selection-step-help">Elige un modo.</p>
   `;
 
   menuScrollArea.insertBefore(section, characterSelect || menuScrollArea.firstChild);
@@ -377,14 +377,14 @@ function showStep(step, focus = false) {
   const backButton = document.querySelector('#selectionBackButton');
 
   const titles = {
-    mode: 'Elige modo',
-    character: 'Elige personaje',
-    level: 'Elige ruta',
+    mode: 'Modo',
+    character: 'Personaje',
+    level: 'Ruta',
   };
   const descriptions = {
-    mode: 'Toca una opción para pasar al personaje.',
-    character: 'No hay personaje preseleccionado: toca uno para continuar.',
-    level: 'Toca un nivel y la partida empezará automáticamente.',
+    mode: 'Selecciona el tipo de partida.',
+    character: 'Elige tu corredor.',
+    level: 'Toca una ruta para empezar.',
   };
 
   if (title) title.textContent = titles[step];
