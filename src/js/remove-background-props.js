@@ -75,6 +75,16 @@ function isLargeLegacyRect(ctx, x, y, width, height) {
   return width >= canvasWidth * 0.35 && height >= canvasHeight * 0.05 && y <= canvasHeight * 0.9;
 }
 
+function clearGameCanvas(ctx) {
+  const canvasWidth = ctx.canvas.clientWidth || ctx.canvas.width;
+  const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+  ctx.restore();
+}
+
 function installBackgroundPropFilter() {
   const proto = CanvasRenderingContext2D.prototype;
   if (proto.__hamsterSafeBackgroundPropsRemoved) return;
@@ -111,6 +121,7 @@ function installBackgroundPropFilter() {
 
   proto.fillRect = function fillRectWithoutLegacyBackground(x, y, width, height) {
     if (isLargeLegacyRect(this, x, y, width, height)) {
+      clearGameCanvas(this);
       return;
     }
 
