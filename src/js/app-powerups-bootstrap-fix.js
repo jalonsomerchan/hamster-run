@@ -134,7 +134,11 @@ function fixGeneratedPowerUpsSource(source) {
   const timeRamp = clamp(state.time / 95, 0, 0.34);
   return clamp(base + timeRamp + (mode.difficultyBoost || 0), 0, 1);`)
     .replace(/withModeRandom\(\(\) => originalResetGame\(\)\);/g, `withModeRandom(() => originalResetGame());
-  applySelectedDifficultyToLevel();`)
+  applySelectedDifficultyToLevel();
+  clampLivesToSelectedDifficulty();`)
+    .replace(/updatePowerUps\(dt\);\n  if \(state\.peanuts > peanutsBefore\)/g, `updatePowerUps(dt);
+  clampLivesToSelectedDifficulty();
+  if (state.peanuts > peanutsBefore`)
     .replace(
       `const TUTORIAL_POWER_UPS = {
   8: { gap: 94, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
@@ -150,7 +154,19 @@ function fixGeneratedPowerUpsSource(source) {
     .replace(/function spawnPowerUp\(platform, type, ratio = 0\.5\) \{/g, 'function spawnPowerUp(platform, type, ratio = 0.5, tutorialPrompt = null) {')
     .replace(/const yOffset = 92;/g, `const yOffset = state.level?.tutorial ? 86 : 92;`)
     .replace(/powerUps\.push\(\{ type, x, y: platform\.y - yOffset, size, taken: false, bob: random\(0, Math\.PI \* 2\), platformId: platform\.id, yOffset, pulse: 0 \}\);/g, `powerUps.push({ type, x, y: platform.y - yOffset, size, taken: false, bob: random(0, Math.PI * 2), platformId: platform.id, yOffset, pulse: 0, tutorialPrompt });`)
-    .replace(/function drawPowerUp\(powerUp\) \{/g, `function applySelectedDifficultyToLevel() {
+    .replace(/function drawPowerUp\(powerUp\) \{/g, `function selectedDifficultyMaxLives() {
+  const difficultyId = selectedMode().difficultyId || 'medium';
+  if (difficultyId === 'veryHard') return 1;
+  if (difficultyId === 'hard') return 3;
+  return 5;
+}
+
+function clampLivesToSelectedDifficulty() {
+  const maxLives = selectedDifficultyMaxLives();
+  state.lives = Math.min(maxLives, Math.max(0, state.lives));
+}
+
+function applySelectedDifficultyToLevel() {
   const mode = selectedMode();
   if (!state.level || state.level.__difficultyApplied) return;
   state.level = {
