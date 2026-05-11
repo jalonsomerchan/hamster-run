@@ -105,6 +105,7 @@ function installBackgroundPropFilter() {
 
   proto.fill = function fillWithoutLegacyBackground(...args) {
     if (isLegacyBackgroundPaint(this)) {
+      clearGameCanvas(this);
       return;
     }
 
