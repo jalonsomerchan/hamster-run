@@ -3,36 +3,20 @@ import background2 from '../assets/background/background2.png';
 import background3 from '../assets/background/background3.png';
 import background4 from '../assets/background/background4.png';
 
-const backgroundUrls = [background1, background2, background3, background4].filter(Boolean);
-const storageKey = 'hamster-run-random-background-v1';
+const backgroundUrls = [background1, background2, background3, background4];
 const canvasSelector = '#game';
 const state = {
   image: null,
-  url: '',
+  url: backgroundUrls[Math.floor(Math.random() * backgroundUrls.length)],
   offset: 0,
   lastTime: performance.now(),
   speed: 28,
-  nativeFillRect: null,
 };
 
-function pickBackgroundUrl() {
-  if (!backgroundUrls.length) return '';
-  const previous = sessionStorage.getItem(storageKey);
-  if (previous && backgroundUrls.includes(previous)) return previous;
-
-  const selected = backgroundUrls[Math.floor(Math.random() * backgroundUrls.length)];
-  sessionStorage.setItem(storageKey, selected);
-  return selected;
-}
-
 function loadBackground() {
-  const url = pickBackgroundUrl();
-  if (!url) return;
-
-  state.url = url;
   state.image = new Image();
   state.image.decoding = 'async';
-  state.image.src = url;
+  state.image.src = state.url;
 }
 
 function updateOffset() {
@@ -102,10 +86,9 @@ function drawInfiniteBackground(ctx) {
 }
 
 function installCanvasBackgroundPatch() {
-  if (!backgroundUrls.length || CanvasRenderingContext2D.prototype.__hamsterInfiniteBackgroundPatched) return;
+  if (CanvasRenderingContext2D.prototype.__hamsterInfiniteBackgroundPatched) return;
 
   const nativeFillRect = CanvasRenderingContext2D.prototype.fillRect;
-  state.nativeFillRect = nativeFillRect;
   CanvasRenderingContext2D.prototype.__hamsterInfiniteBackgroundPatched = true;
 
   CanvasRenderingContext2D.prototype.fillRect = function patchedFillRect(x, y, width, height) {
@@ -124,7 +107,7 @@ window.HamsterRunBackgrounds = {
   available: backgroundUrls,
   current: () => state.url,
   shuffle() {
-    sessionStorage.removeItem(storageKey);
+    state.url = backgroundUrls[Math.floor(Math.random() * backgroundUrls.length)];
     loadBackground();
   },
 };
