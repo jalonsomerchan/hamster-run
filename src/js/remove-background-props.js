@@ -67,6 +67,10 @@ function isLegacyBackgroundPaint(ctx) {
   return LEGACY_BACKGROUND_COLORS.has(normalizeCanvasStyle(ctx.fillStyle)) || LEGACY_BACKGROUND_COLORS.has(normalizeCanvasStyle(ctx.strokeStyle));
 }
 
+function drawConfiguredBackground(ctx) {
+  return window.HamsterRunBackgrounds?.draw?.(ctx) === true;
+}
+
 function isLargeLegacyRect(ctx, x, y, width, height) {
   if (!isLegacyBackgroundPaint(ctx)) return false;
 
@@ -95,6 +99,7 @@ function installBackgroundPropFilter() {
 
   proto.fill = function fillWithoutLegacyBackground(...args) {
     if (isLegacyBackgroundPaint(this)) {
+      drawConfiguredBackground(this);
       return;
     }
 
@@ -111,6 +116,7 @@ function installBackgroundPropFilter() {
 
   proto.fillRect = function fillRectWithoutLegacyBackground(x, y, width, height) {
     if (isLargeLegacyRect(this, x, y, width, height)) {
+      drawConfiguredBackground(this);
       return;
     }
 
