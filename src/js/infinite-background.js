@@ -106,6 +106,7 @@ installCanvasBackgroundPatch();
 window.HamsterRunBackgrounds = {
   available: backgroundUrls,
   current: () => state.url,
+  draw: drawInfiniteBackground,
   shuffle() {
     state.url = backgroundUrls[Math.floor(Math.random() * backgroundUrls.length)];
     loadBackground();
