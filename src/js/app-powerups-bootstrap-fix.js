@@ -175,7 +175,7 @@ function drawPowerUpTimerOverlay()`,
   drawPowerUpPrompt(powerUp, cx, cy);
 }
 
-function drawPowerUpTimerOverlay`,
+function drawPowerUpTimerOverlay()`,
     )
     .replace(/roundRect\(ctx,/g, 'powerUpRoundRect(ctx,')
     .replace(/function roundRect\(targetCtx,/g, 'function powerUpRoundRect(targetCtx,');
