@@ -32,8 +32,10 @@ import haySprite from '../assets/sprites/background/background-6.png';
 import thistleSprite from '../assets/sprites/environment/environment-3.png';
 import grassSprite from '../assets/sprites/environment/environment-4.png';
 
+const patchedAppSource = tuneBaseGameSource(appSource);
+
 const importedValues = {
-  appSource,
+  appSource: patchedAppSource,
   hamsterSheet,
   blueHamsterSheet,
   tasmanianSheet,
@@ -62,6 +64,29 @@ const importedValues = {
   grassSprite,
 };
 
+function tuneBaseGameSource(source) {
+  return source.replace(
+    `platforms = [
+    makePlatform(-35, floor, Math.max(340, state.width * 0.82), state.level.platformVariant),
+    {
+      ...makePlatform(
+        Math.max(260, state.width * 0.72),
+        floor - 8,
+        Math.max(260, state.width * 0.62),
+        state.level.platformVariant,
+      ),
+      starter: true,
+    },
+  ];`,
+    `platforms = [
+    {
+      ...makePlatform(-35, floor, Math.max(360, state.width * 0.92), state.level.platformVariant),
+      starter: true,
+    },
+  ];`,
+  );
+}
+
 function inlineBootstrapImports(source) {
   return source
     .replace(/^import appSource from '\.\/app\.js\?raw';\s*$/m, `const appSource = ${JSON.stringify(importedValues.appSource)};`)
@@ -74,6 +99,25 @@ function inlineBootstrapImports(source) {
 
 function fixGeneratedPowerUpsSource(source) {
   return source
+    .replace(/const START_SAFE_PLATFORMS = 7;/g, 'const START_SAFE_PLATFORMS = 4;')
+    .replace(
+      `const TUTORIAL_POWER_UPS = {
+  8: { gap: 94, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
+  9: { gap: 108, width: 340, lane: 1, prompt: 'Rojo: corres más', powerUp: 'speed', peanuts: 1 },
+  10: { gap: 112, width: 340, lane: 2, prompt: 'Amarillo: invencible', powerUp: 'invincible', enemy: 'ground' },
+  11: { gap: 102, width: 340, lane: 1, prompt: 'Mira el contador arriba', peanuts: 2 },
+};`,
+      `const TUTORIAL_POWER_UPS = {
+  3: { gap: 112, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
+  4: { gap: 132, width: 320, lane: 1, prompt: 'Practica esos saltos', peanuts: 2 },
+  5: { gap: 128, width: 340, lane: 2, prompt: 'Rojo: corres más', powerUp: 'speed' },
+  6: { gap: 150, width: 330, lane: 2, prompt: 'Controla el turbo', peanuts: 2 },
+  7: { gap: 134, width: 340, lane: 1, prompt: 'Amarillo: invencible', powerUp: 'invincible' },
+  8: { gap: 142, width: 340, lane: 2, prompt: 'Pasa brillando', enemy: 'ground', peanuts: 1 },
+  9: { gap: 124, width: 330, lane: 1, prompt: 'Mira el contador arriba', heart: true },
+};`,
+    )
+    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.56\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.36);')
     .replace(/roundRect\(ctx,/g, 'powerUpRoundRect(ctx,')
     .replace(/function roundRect\(targetCtx,/g, 'function powerUpRoundRect(targetCtx,');
 }
