@@ -3,6 +3,9 @@ import '../css/main.css';
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
 import tasmanianSheet from '../assets/sprites/characters/tasmanian/sheet-transparent.png';
+import hamsterAngelSheet from '../assets/sprites/death/hamster-angel/sheet-transparent.png';
+import blueHamsterAngelSheet from '../assets/sprites/death/blue-hamster-angel/sheet-transparent.png';
+import tasmanianAngelSheet from '../assets/sprites/death/tasmanian-angel/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
 import heartSheet from '../assets/sprites/heart/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
@@ -260,6 +263,9 @@ const sprites = {
   hamster: { image: makeImage(hamsterSheet), cols: 4, rows: 1, cell: 192 },
   blueHamster: { image: makeImage(blueHamsterSheet), cols: 4, rows: 1, cell: 192 },
   tasmanian: { image: makeImage(tasmanianSheet), cols: 4, rows: 1, cell: 192 },
+  hamsterAngel: { image: makeImage(hamsterAngelSheet), cols: 4, rows: 1, cell: 192 },
+  blueHamsterAngel: { image: makeImage(blueHamsterAngelSheet), cols: 4, rows: 1, cell: 192 },
+  tasmanianAngel: { image: makeImage(tasmanianAngelSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
   heart: { image: makeImage(heartSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
@@ -273,9 +279,9 @@ const sprites = {
 };
 
 const characters = [
-  { id: 'hamster', name: 'Rojo', sprite: sprites.hamster, width: 62, height: 54 },
-  { id: 'blueHamster', name: 'Azul', sprite: sprites.blueHamster, width: 62, height: 54 },
-  { id: 'tasmanian', name: 'Turbo', sprite: sprites.tasmanian, width: 66, height: 56 },
+  { id: 'hamster', name: 'Rojo', sprite: sprites.hamster, deathSprite: sprites.hamsterAngel, width: 62, height: 54 },
+  { id: 'blueHamster', name: 'Azul', sprite: sprites.blueHamster, deathSprite: sprites.blueHamsterAngel, width: 62, height: 54 },
+  { id: 'tasmanian', name: 'Turbo', sprite: sprites.tasmanian, deathSprite: sprites.tasmanianAngel, width: 66, height: 56 },
 ];
 
 const state = {

@@ -7,6 +7,9 @@ import './game-modes.js';
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
 import tasmanianSheet from '../assets/sprites/characters/tasmanian/sheet-transparent.png';
+import hamsterAngelSheet from '../assets/sprites/death/hamster-angel/sheet-transparent.png';
+import blueHamsterAngelSheet from '../assets/sprites/death/blue-hamster-angel/sheet-transparent.png';
+import tasmanianAngelSheet from '../assets/sprites/death/tasmanian-angel/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
 import heartSheet from '../assets/sprites/heart/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
@@ -32,6 +35,9 @@ const assetUrls = {
   '../assets/sprites/hamster/sheet-transparent.png': hamsterSheet,
   '../assets/sprites/characters/blue-hamster/sheet-transparent.png': blueHamsterSheet,
   '../assets/sprites/characters/tasmanian/sheet-transparent.png': tasmanianSheet,
+  '../assets/sprites/death/hamster-angel/sheet-transparent.png': hamsterAngelSheet,
+  '../assets/sprites/death/blue-hamster-angel/sheet-transparent.png': blueHamsterAngelSheet,
+  '../assets/sprites/death/tasmanian-angel/sheet-transparent.png': tasmanianAngelSheet,
   '../assets/sprites/peanut/sheet-transparent.png': peanutSheet,
   '../assets/sprites/heart/sheet-transparent.png': heartSheet,
   '../assets/sprites/enemy/sheet-transparent.png': enemySheet,
@@ -229,8 +235,10 @@ function findSafeRespawnPoint() {
 function spawnLifeGhost() {
   ensureLifeGhostLayer();
   const character = selectedCharacter();
-  const sprite = character.sprite;
-  lifeGhosts.push({ x: clamp(player.x, 20, state.width - player.width - 20), y: clamp(player.y, 96, state.height - player.height - 120), width: player.width, height: player.height, sprite, frame: Math.floor(state.time * 10) % sprite.cols, age: 0, ttl: 2.1, drift: Math.random() < 0.5 ? -12 : 12 });
+  const sprite = character.deathSprite || character.sprite;
+  const ghostWidth = player.width + 48;
+  const ghostHeight = player.height + 78;
+  lifeGhosts.push({ x: clamp(player.x - 24, 16, state.width - ghostWidth - 16), y: clamp(player.y - 54, 68, state.height - ghostHeight - 96), width: ghostWidth, height: ghostHeight, sprite, frame: Math.floor(state.time * 10) % sprite.cols, age: 0, ttl: 2.1, drift: Math.random() < 0.5 ? -12 : 12 });
   if (lifeGhosts.length > 5) lifeGhosts.splice(0, lifeGhosts.length - 5);
   startLifeGhostAnimation();
 }
@@ -282,14 +290,9 @@ function drawLifeGhost(ghost) {
   lifeGhostCtx.globalAlpha = Math.max(0, 0.86 * (1 - progress));
   lifeGhostCtx.translate(ghost.x + ghost.width / 2, ghost.y + ghost.height / 2 - Math.sin(progress * Math.PI) * 14);
   lifeGhostCtx.scale(1 + progress * 0.2, 1 + progress * 0.2);
-  lifeGhostCtx.filter = 'brightness(1.42) saturate(0.58)';
+  lifeGhostCtx.filter = 'brightness(1.08) saturate(0.96)';
   lifeGhostCtx.drawImage(sprite.image, ghost.frame * cell, 0, cell, cell, -ghost.width / 2, -ghost.height / 2, ghost.width, ghost.height);
   lifeGhostCtx.filter = 'none';
-  lifeGhostCtx.strokeStyle = 'rgba(255, 248, 180, 0.98)';
-  lifeGhostCtx.lineWidth = 3;
-  lifeGhostCtx.beginPath();
-  lifeGhostCtx.ellipse(0, -ghost.height * 0.68, ghost.width * 0.42, 5, 0, 0, Math.PI * 2);
-  lifeGhostCtx.stroke();
   lifeGhostCtx.restore();
 }
 
