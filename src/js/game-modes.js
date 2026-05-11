@@ -196,10 +196,10 @@ function ensureStepper() {
 }
 
 function ensureModeSelector() {
-  const levelPanel = document.querySelector('.level-panel');
+  const menuScrollArea = document.querySelector('.menu-scroll-area');
   const characterSelect = document.querySelector('.character-select');
 
-  if (!levelPanel || document.querySelector('#modeSelect')) return;
+  if (!menuScrollArea || document.querySelector('#modeSelect')) return;
 
   const section = document.createElement('div');
   section.id = 'modeSelect';
@@ -212,7 +212,7 @@ function ensureModeSelector() {
     <p class="selection-step-help">Elige un modo para continuar. No hay modo preseleccionado.</p>
   `;
 
-  levelPanel.insertBefore(section, characterSelect || document.querySelector('#levelGrid'));
+  menuScrollArea.insertBefore(section, characterSelect || menuScrollArea.firstChild);
 }
 
 function ensureLevelSection() {
