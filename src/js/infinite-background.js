@@ -13,10 +13,26 @@ const state = {
   speed: 28,
 };
 
+function gameCanvas() {
+  return document.querySelector(canvasSelector);
+}
+
+function applyCanvasCssBackground() {
+  const canvas = gameCanvas();
+  if (!canvas) return;
+
+  canvas.style.backgroundImage = `url("${state.url}")`;
+  canvas.style.backgroundRepeat = 'repeat-x';
+  canvas.style.backgroundSize = 'auto 100%';
+  canvas.style.backgroundPosition = `${-Math.round(state.offset)}px 0`;
+  canvas.style.backgroundColor = 'transparent';
+}
+
 function loadBackground() {
   state.image = new Image();
   state.image.decoding = 'async';
   state.image.src = state.url;
+  applyCanvasCssBackground();
 }
 
 function updateOffset() {
@@ -24,6 +40,7 @@ function updateOffset() {
   const dt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
   state.lastTime = now;
   state.offset = (state.offset + state.speed * dt) % 100000;
+  applyCanvasCssBackground();
 }
 
 function isGameCanvas(ctx) {
@@ -60,7 +77,10 @@ function drawCoverTile(ctx, dx, dy, tileWidth, tileHeight) {
 
 function drawInfiniteBackground(ctx) {
   const image = state.image;
-  if (!image?.complete || !image.naturalWidth || !image.naturalHeight) return false;
+  if (!image?.complete || !image.naturalWidth || !image.naturalHeight) {
+    applyCanvasCssBackground();
+    return false;
+  }
 
   const canvasWidth = ctx.canvas.clientWidth || ctx.canvas.width;
   const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
