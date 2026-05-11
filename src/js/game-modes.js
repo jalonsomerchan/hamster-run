@@ -1,14 +1,14 @@
 const MODE_KEY = 'hamster-run-selected-mode';
 const MODE_RECORD_KEY = 'hamster-run-records-v1-by-mode-v1';
 const LEGACY_RECORD_KEY = 'hamster-run-records-v1';
-const LEVEL_IDS = ['meadow', 'clover', 'bridge', 'cookie', 'straw', 'moon'];
+const LEVEL_IDS = ['tutorial', 'meadow', 'clover', 'bridge', 'cookie', 'straw', 'moon'];
 const STEPS = ['mode', 'character', 'level'];
 
 const modes = [
   {
     id: 'endless',
     name: 'Endless',
-    detail: 'Sin límite. Aguanta y suma.',
+    detail: 'Libre',
     tag: 'Clásico',
     timeLimit: null,
     seed: null,
@@ -16,7 +16,7 @@ const modes = [
   {
     id: 'timeAttack',
     name: 'Contrarreloj',
-    detail: '60 segundos. Máxima puntuación.',
+    detail: '60 s',
     tag: '60s',
     timeLimit: 60,
     seed: null,
@@ -24,7 +24,7 @@ const modes = [
   {
     id: 'challenge',
     name: 'Desafío',
-    detail: 'Misma ruta. Mejor marca.',
+    detail: 'Fijo',
     tag: 'Fijo',
     timeLimit: null,
     seed: 'hamster-run-daily-challenge-v1',
@@ -187,9 +187,9 @@ function ensureStepper() {
   progress.className = 'selection-progress';
   progress.setAttribute('aria-label', 'Progreso de selección');
   progress.innerHTML = `
-    <span data-step-indicator="mode">1. Modo</span>
-    <span data-step-indicator="character">2. Personaje</span>
-    <span data-step-indicator="level">3. Nivel</span>
+    <span data-step-indicator="mode">Modo</span>
+    <span data-step-indicator="character">Personaje</span>
+    <span data-step-indicator="level">Ruta</span>
   `;
 
   heading?.after(progress);
@@ -382,9 +382,9 @@ function showStep(step, focus = false) {
     level: 'Ruta',
   };
   const descriptions = {
-    mode: 'Selecciona el tipo de partida.',
-    character: 'Elige tu corredor.',
-    level: 'Toca una ruta para empezar.',
+    mode: '',
+    character: '',
+    level: '',
   };
 
   if (title) title.textContent = titles[step];

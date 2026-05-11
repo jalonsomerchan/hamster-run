@@ -57,6 +57,28 @@ const RECORD_KEY = 'hamster-run-records-v1';
 
 const levels = [
   {
+    id: 'tutorial',
+    name: 'Tutorial',
+    detail: 'Aprende',
+    tag: 'Inicio',
+    speed: 188,
+    gravity: 1740,
+    jump: 710,
+    enemyChance: 0,
+    startGap: [58, 90],
+    gap: [76, 118],
+    startWidth: [280, 380],
+    width: [230, 360],
+    startVertical: 18,
+    vertical: 42,
+    lanes: [0.5, 0.61, 0.72],
+    movingChance: 0,
+    platformVariant: 0,
+    backgroundSet: 'meadow',
+    palette: ['#91d8ea', '#bcebc7', '#f5cb6b'],
+    tutorial: true,
+  },
+  {
     id: 'meadow',
     name: 'Pradera',
     detail: 'Ritmo suave',
@@ -554,20 +576,29 @@ function createBackgroundProps() {
 function spawnPlatform(previous = platforms[platforms.length - 1]) {
   const level = state.level;
   const difficulty = currentDifficulty();
+  const tutorialSpec = level.tutorial ? tutorialPlatformSpec(state.platformCount) : null;
   const gapRange = lerpRange(level.startGap, level.gap, difficulty);
   const widthRange = lerpRange(level.startWidth, level.width, difficulty);
-  const gap = random(gapRange[0], Math.min(gapRange[1], state.width * 0.46));
+  const gap = tutorialSpec?.gap ?? random(gapRange[0], Math.min(gapRange[1], state.width * 0.46));
   const minWidth = Math.max(widthRange[0], LANDING_ZONE * 2 + player.width);
   const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 28), state.width * 0.94);
-  const width = random(minWidth, maxWidth);
-  const y = choosePlatformY(previous, gap, difficulty);
+  const width = tutorialSpec?.width ?? random(minWidth, maxWidth);
+  const y = tutorialSpec?.lane !== undefined ? laneY(tutorialSpec.lane) : choosePlatformY(previous, gap, difficulty);
   const variant = level.platformVariant;
   const platform = makePlatform((previous ? previous.x + previous.width : 0) + gap, y, width, variant);
   platform.index = state.platformCount;
   platform.lane = closestLaneIndex(y);
-  maybeMakePlatformMoving(platform, difficulty);
+  platform.tutorialPrompt = tutorialSpec?.prompt;
+  if (!level.tutorial) {
+    maybeMakePlatformMoving(platform, difficulty);
+  }
   state.platformCount += 1;
   platforms.push(platform);
+
+  if (level.tutorial && tutorialSpec) {
+    spawnTutorialItems(platform, tutorialSpec);
+    return;
+  }
 
   const peanutCount = Math.random() > 0.22 ? Math.floor(random(1, 4)) : 0;
   const peanutStart = platform.x + Math.max(34, LANDING_ZONE * 0.55);
@@ -616,6 +647,81 @@ function spawnPlatform(previous = platforms[platforms.length - 1]) {
       yOffset: 25,
     });
   }
+}
+
+function tutorialPlatformSpec(index) {
+  const scripted = {
+    2: { gap: 64, width: 330, lane: 2, prompt: 'Toca para saltar', peanuts: 2 },
+    3: { gap: 132, width: 300, lane: 2, prompt: 'Salta huecos', peanuts: 2 },
+    4: { gap: 154, width: 260, lane: 1, prompt: 'Doble salto', heart: true },
+    5: { gap: 100, width: 330, lane: 2, prompt: 'Evita enemigos', enemy: 'ground' },
+    6: { gap: 116, width: 330, lane: 2, prompt: 'Písalo desde arriba', enemy: 'chestnut', peanuts: 1 },
+    7: { gap: 92, width: 340, lane: 1, prompt: 'Sigue corriendo', heart: true, peanuts: 2 },
+  };
+
+  if (scripted[index]) {
+    return scripted[index];
+  }
+
+  return {
+    gap: random(88, 124),
+    width: random(250, 350),
+    lane: Math.floor(random(1, 3)),
+    peanuts: Math.random() > 0.48 ? 2 : 0,
+  };
+}
+
+function spawnTutorialItems(platform, spec) {
+  for (let index = 0; index < (spec.peanuts || 0); index += 1) {
+    const yOffset = 78;
+    peanuts.push({
+      x: platform.x + 72 + index * 44,
+      y: platform.y - yOffset,
+      size: 28,
+      taken: false,
+      bob: random(0, Math.PI * 2),
+      platformId: platform.id,
+      yOffset,
+    });
+  }
+
+  if (spec.heart) {
+    const yOffset = 112;
+    hearts.push({
+      x: platform.x + platform.width * 0.55,
+      y: platform.y - yOffset,
+      size: 32,
+      taken: false,
+      bob: random(0, Math.PI * 2),
+      platformId: platform.id,
+      yOffset,
+    });
+  }
+
+  if (spec.enemy) {
+    addTutorialEnemy(platform, spec.enemy);
+  }
+}
+
+function addTutorialEnemy(platform, kind) {
+  const width = kind === 'chestnut' ? 50 : 48;
+  const height = kind === 'chestnut' ? 39 : 37;
+  const yOffset = kind === 'chestnut' ? 42 : 40;
+
+  enemies.push({
+    kind,
+    x: platform.x + platform.width * 0.56,
+    y: platform.y - yOffset,
+    width,
+    height,
+    platformLeft: platform.x + LANDING_ZONE,
+    platformRight: platform.x + platform.width - LANDING_ZONE - width,
+    platformId: platform.id,
+    yOffset,
+    patrolSpeed: 12,
+    direction: -1,
+    phase: random(0, Math.PI * 2),
+  });
 }
 
 function spawnEnemy(platform, enemyX, difficulty) {
@@ -1028,6 +1134,7 @@ function draw() {
     });
 
     platforms.forEach(drawPlatform);
+    drawTutorialPrompts();
     peanuts.forEach(drawPeanut);
     hearts.forEach(drawHeart);
     enemies.forEach(drawEnemy);
@@ -1037,6 +1144,67 @@ function draw() {
 
   ctx.restore();
   drawHeroPreview();
+}
+
+function drawTutorialPrompts() {
+  if (!state.level.tutorial) {
+    return;
+  }
+
+  platforms.forEach((platform) => {
+    if (!platform.tutorialPrompt) {
+      return;
+    }
+
+    const x = platform.x + platform.width / 2;
+    const y = platform.y - 116;
+    if (x < -130 || x > state.width + 130) {
+      return;
+    }
+
+    drawTutorialBubble(platform.tutorialPrompt, x, y);
+  });
+}
+
+function drawTutorialBubble(text, x, y) {
+  ctx.save();
+  ctx.font = '900 18px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const width = Math.min(230, Math.max(132, ctx.measureText(text).width + 42));
+  const height = 44;
+  const left = clamp(x - width / 2, 14, state.width - width - 14);
+  const top = clamp(y, 84, state.height - 220);
+
+  ctx.shadowColor = 'rgba(55, 24, 8, 0.24)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 7;
+  roundRect(left, top, width, height, 18);
+  const gradient = ctx.createLinearGradient(0, top, 0, top + height);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(1, '#ffe494');
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(95, 51, 20, 0.18)';
+  ctx.stroke();
+
+  ctx.fillStyle = '#3a1808';
+  ctx.fillText(text, left + width / 2, top + height / 2 + 1);
+  ctx.restore();
+}
+
+function roundRect(x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
 }
 
 function drawBackground(hill, sun) {
