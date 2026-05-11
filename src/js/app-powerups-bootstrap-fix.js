@@ -99,11 +99,11 @@ function tuneBaseGameSource(source) {
       `const scripted = {
     2: { gap: 86, width: 340, lane: 2, prompt: 'Salta el hueco', peanuts: 2 },
     3: { gap: 148, width: 310, lane: 1, prompt: 'Doble salto', heart: true },
-    4: { gap: 112, width: 360, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
+    4: { gap: 112, width: 360, lane: 2, powerUpPrompt: 'Azul: más saltos', powerUp: 'jumps' },
     5: { gap: 160, width: 330, lane: 1, prompt: 'Usa los saltos extra', peanuts: 2 },
-    6: { gap: 118, width: 360, lane: 2, prompt: 'Rojo: corres más', powerUp: 'speed' },
+    6: { gap: 118, width: 360, lane: 2, powerUpPrompt: 'Rojo: corres más', powerUp: 'speed' },
     7: { gap: 154, width: 340, lane: 2, prompt: 'Controla el turbo', peanuts: 2 },
-    8: { gap: 118, width: 360, lane: 1, prompt: 'Amarillo: invencible', powerUp: 'invincible' },
+    8: { gap: 118, width: 360, lane: 1, powerUpPrompt: 'Amarillo: invencible', powerUp: 'invincible' },
     9: { gap: 124, width: 350, lane: 2, prompt: 'Evita enemigos', enemy: 'ground' },
     10: { gap: 126, width: 340, lane: 2, prompt: 'Písalo desde arriba', enemy: 'chestnut', peanuts: 1 },
     11: { gap: 104, width: 350, lane: 1, prompt: 'Mira el contador arriba', heart: true, peanuts: 2 },
@@ -133,10 +133,34 @@ function fixGeneratedPowerUpsSource(source) {
 };`,
       `const TUTORIAL_POWER_UPS = {};`,
     )
-    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.56\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.5);')
-    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.36\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.5);')
-    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.18\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.5);')
-    .replace(/const yOffset = 92;/g, `const yOffset = state.level?.tutorial ? 48 : 92;`)
+    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.56\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.5, spec.powerUpPrompt);')
+    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.36\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.5, spec.powerUpPrompt);')
+    .replace(/spawnPowerUp\(platform, spec\.powerUp, 0\.18\);/g, 'spawnPowerUp(platform, spec.powerUp, 0.5, spec.powerUpPrompt);')
+    .replace(/function spawnPowerUp\(platform, type, ratio = 0\.5\) \{/g, 'function spawnPowerUp(platform, type, ratio = 0.5, tutorialPrompt = null) {')
+    .replace(/const yOffset = 92;/g, `const yOffset = state.level?.tutorial ? 86 : 92;`)
+    .replace(/powerUps\.push\(\{ type, x, y: platform\.y - yOffset, size, taken: false, bob: random\(0, Math\.PI \* 2\), platformId: platform\.id, yOffset, pulse: 0 \}\);/g, `powerUps.push({ type, x, y: platform.y - yOffset, size, taken: false, bob: random(0, Math.PI * 2), platformId: platform.id, yOffset, pulse: 0, tutorialPrompt });`)
+    .replace(/function drawPowerUp\(powerUp\) \{/g, `function drawPowerUpPrompt(powerUp, cx, cy) {
+  if (!powerUp.tutorialPrompt) return;
+  ctx.save();
+  ctx.font = '800 15px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const text = powerUp.tutorialPrompt;
+  const width = Math.min(240, ctx.measureText(text).width + 28);
+  const labelY = cy - 36;
+  ctx.fillStyle = 'rgba(20, 24, 36, 0.78)';
+  powerUpRoundRect(ctx, cx - width / 2, labelY - 17, width, 34, 17);
+  ctx.fill();
+  ctx.strokeStyle = POWER_UP_TYPES[powerUp.type].color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.fillText(text, cx, labelY);
+  ctx.restore();
+}
+
+function drawPowerUp(powerUp) {`)
+    .replace(/ctx\.restore\(\);\n\}/g, 'ctx.restore();\n  drawPowerUpPrompt(powerUp, cx, cy);\n}', 1)
     .replace(/roundRect\(ctx,/g, 'powerUpRoundRect(ctx,')
     .replace(/function roundRect\(targetCtx,/g, 'function powerUpRoundRect(targetCtx,');
 }
