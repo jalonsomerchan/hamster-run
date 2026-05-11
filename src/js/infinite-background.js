@@ -14,6 +14,7 @@ const state = {
   offset: 0,
   lastTime: performance.now(),
   speed: 28,
+  nativeFillRect: null,
 };
 
 function pickBackgroundUrl() {
@@ -68,7 +69,7 @@ function isFullCanvasFill(ctx, x, y, width, height) {
 
 function drawInfiniteBackground(ctx) {
   const pattern = getCanvasContextPattern(ctx);
-  if (!pattern) return false;
+  if (!pattern || !state.nativeFillRect) return false;
 
   const canvasWidth = ctx.canvas.clientWidth || ctx.canvas.width;
   const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
@@ -81,7 +82,7 @@ function drawInfiniteBackground(ctx) {
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = pattern;
   ctx.translate(-state.offset, 0);
-  ctx.fillRect(0, 0, canvasWidth + state.image.naturalWidth + state.offset, canvasHeight);
+  state.nativeFillRect.call(ctx, 0, 0, canvasWidth + state.image.naturalWidth + state.offset, canvasHeight);
   ctx.restore();
 
   return true;
@@ -91,6 +92,7 @@ function installCanvasBackgroundPatch() {
   if (!backgroundUrls.length || CanvasRenderingContext2D.prototype.__hamsterInfiniteBackgroundPatched) return;
 
   const nativeFillRect = CanvasRenderingContext2D.prototype.fillRect;
+  state.nativeFillRect = nativeFillRect;
   CanvasRenderingContext2D.prototype.__hamsterInfiniteBackgroundPatched = true;
 
   CanvasRenderingContext2D.prototype.fillRect = function patchedFillRect(x, y, width, height) {
