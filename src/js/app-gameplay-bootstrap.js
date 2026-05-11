@@ -64,6 +64,19 @@ const importedValues = {
   grassSprite,
 };
 
+function encodeUtf8Base64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let binary = '';
+  for (let index = 0; index < bytes.length; index += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000));
+  }
+  return btoa(binary);
+}
+
+function jsDecodeUtf8Base64Expression(text) {
+  return `new TextDecoder().decode(Uint8Array.from(atob(${JSON.stringify(encodeUtf8Base64(text))}), c => c.charCodeAt(0)))`;
+}
+
 function tuneBaseGameSource(source) {
   return source
     .replace(
@@ -113,7 +126,7 @@ function tuneBaseGameSource(source) {
 
 function inlineBootstrapImports(source) {
   return source
-    .replace(/^import appSource from '\.\/app\.js\?raw';\s*$/m, `const appSource = ${JSON.stringify(importedValues.appSource)};`)
+    .replace(/^import appSource from '\.\/app\.js\?raw';\s*$/m, `const appSource = ${jsDecodeUtf8Base64Expression(importedValues.appSource)};`)
     .replace(/^import '\.\.\/css\/main\.css';\s*$/m, '')
     .replace(/^import '\.\/accessibility\.js';\s*$/m, '')
     .replace(/^import '\.\/sound\.js';\s*$/m, '')
