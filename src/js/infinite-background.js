@@ -9,7 +9,6 @@ const storageKey = 'hamster-run-random-background-v1';
 const canvasSelector = '#game';
 const state = {
   image: null,
-  pattern: null,
   url: '',
   offset: 0,
   lastTime: performance.now(),
@@ -34,25 +33,14 @@ function loadBackground() {
   state.url = url;
   state.image = new Image();
   state.image.decoding = 'async';
-  state.image.onload = () => {
-    state.pattern = null;
-  };
   state.image.src = url;
-}
-
-function getCanvasContextPattern(ctx) {
-  if (!state.image?.complete || !state.image.naturalWidth || !state.image.naturalHeight) return null;
-  if (!state.pattern) {
-    state.pattern = ctx.createPattern(state.image, 'repeat');
-  }
-  return state.pattern;
 }
 
 function updateOffset() {
   const now = performance.now();
   const dt = Math.min(0.05, Math.max(0, (now - state.lastTime) / 1000));
   state.lastTime = now;
-  state.offset = (state.offset + state.speed * dt) % 4096;
+  state.offset = (state.offset + state.speed * dt) % 100000;
 }
 
 function isGameCanvas(ctx) {
@@ -67,22 +55,48 @@ function isFullCanvasFill(ctx, x, y, width, height) {
   return x <= 2 && y <= 2 && width >= canvasWidth * 0.92 && height >= canvasHeight * 0.45;
 }
 
+function drawCoverTile(ctx, dx, dy, tileWidth, tileHeight) {
+  const image = state.image;
+  const imageRatio = image.naturalWidth / image.naturalHeight;
+  const tileRatio = tileWidth / tileHeight;
+  let sx = 0;
+  let sy = 0;
+  let sw = image.naturalWidth;
+  let sh = image.naturalHeight;
+
+  if (imageRatio > tileRatio) {
+    sw = image.naturalHeight * tileRatio;
+    sx = (image.naturalWidth - sw) / 2;
+  } else if (imageRatio < tileRatio) {
+    sh = image.naturalWidth / tileRatio;
+    sy = (image.naturalHeight - sh) / 2;
+  }
+
+  ctx.drawImage(image, sx, sy, sw, sh, dx, dy, tileWidth, tileHeight);
+}
+
 function drawInfiniteBackground(ctx) {
-  const pattern = getCanvasContextPattern(ctx);
-  if (!pattern || !state.nativeFillRect) return false;
+  const image = state.image;
+  if (!image?.complete || !image.naturalWidth || !image.naturalHeight) return false;
 
   const canvasWidth = ctx.canvas.clientWidth || ctx.canvas.width;
   const canvasHeight = ctx.canvas.clientHeight || ctx.canvas.height;
+  const tileHeight = canvasHeight;
+  const tileWidth = Math.max(canvasWidth, image.naturalWidth * (tileHeight / image.naturalHeight));
 
   updateOffset();
+
+  const startX = -((state.offset % tileWidth) + tileWidth);
 
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = pattern;
-  ctx.translate(-state.offset, 0);
-  state.nativeFillRect.call(ctx, 0, 0, canvasWidth + state.image.naturalWidth + state.offset, canvasHeight);
+
+  for (let x = startX; x < canvasWidth + tileWidth; x += tileWidth) {
+    drawCoverTile(ctx, x, 0, tileWidth, tileHeight);
+  }
+
   ctx.restore();
 
   return true;
@@ -112,7 +126,6 @@ window.HamsterRunBackgrounds = {
   current: () => state.url,
   shuffle() {
     sessionStorage.removeItem(storageKey);
-    state.pattern = null;
     loadBackground();
   },
 };
