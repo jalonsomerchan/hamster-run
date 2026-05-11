@@ -1,8 +1,9 @@
 const MODE_KEY = 'hamster-run-selected-mode';
+const DIFFICULTY_KEY = 'hamster-run-selected-difficulty';
 const MODE_RECORD_KEY = 'hamster-run-records-v1-by-mode-v1';
 const LEGACY_RECORD_KEY = 'hamster-run-records-v1';
 const LEVEL_IDS = ['tutorial', 'meadow', 'clover', 'bridge', 'cookie', 'straw', 'moon'];
-const STEPS = ['mode', 'character', 'level'];
+const STEPS = ['mode', 'difficulty', 'character', 'level'];
 
 const modes = [
   {
@@ -28,18 +29,83 @@ const modes = [
     tag: 'Fijo',
     timeLimit: null,
     seed: 'hamster-run-daily-challenge-v1',
-    difficultyBoost: 0.16,
+    difficultyBoost: 0.12,
+  },
+];
+
+const difficulties = [
+  {
+    id: 'tutorial',
+    name: 'Tutorial',
+    detail: 'Aprender sin presión',
+    tag: 'Guía',
+    difficultyBoost: -0.22,
+    speedBoost: -16,
+    enemyBoost: -0.18,
+  },
+  {
+    id: 'basic',
+    name: 'Básico',
+    detail: 'Inicio cómodo',
+    tag: 'Fácil',
+    difficultyBoost: -0.1,
+    speedBoost: -8,
+    enemyBoost: -0.08,
+  },
+  {
+    id: 'medium',
+    name: 'Medio',
+    detail: 'Ritmo normal',
+    tag: 'Normal',
+    difficultyBoost: 0,
+    speedBoost: 0,
+    enemyBoost: 0,
+  },
+  {
+    id: 'hard',
+    name: 'Difícil',
+    detail: 'Más tensión',
+    tag: 'Duro',
+    difficultyBoost: 0.18,
+    speedBoost: 18,
+    enemyBoost: 0.08,
+  },
+  {
+    id: 'veryHard',
+    name: 'Muy difícil',
+    detail: 'Para récords',
+    tag: 'Pro',
+    difficultyBoost: 0.34,
+    speedBoost: 34,
+    enemyBoost: 0.16,
   },
 ];
 
 let selectedModeId = null;
+let selectedDifficultyId = null;
 let modeSelectorRenderedFor = '';
+let difficultySelectorRenderedFor = '';
 let currentStep = 'mode';
 let menuWasVisible = false;
 let characterChosenInFlow = false;
 
+function selectedDifficulty() {
+  return difficulties.find((difficulty) => difficulty.id === selectedDifficultyId) || difficulties[2];
+}
+
 function selectedMode() {
-  return modes.find((mode) => mode.id === selectedModeId) || modes[0];
+  const mode = modes.find((item) => item.id === selectedModeId) || modes[0];
+  const difficulty = selectedDifficulty();
+
+  return {
+    ...mode,
+    difficulty,
+    difficultyId: difficulty.id,
+    difficultyName: difficulty.name,
+    difficultyBoost: (mode.difficultyBoost || 0) + (difficulty.difficultyBoost || 0),
+    speedBoost: difficulty.speedBoost || 0,
+    enemyBoost: difficulty.enemyBoost || 0,
+  };
 }
 
 function setSelectedMode(modeId, advance = true) {
@@ -52,15 +118,32 @@ function setSelectedMode(modeId, advance = true) {
   window.dispatchEvent(new CustomEvent('hamster-run-mode-change', { detail: selectedMode() }));
 
   if (advance) {
+    showStep('difficulty', true);
+  }
+}
+
+function setSelectedDifficulty(difficultyId, advance = true) {
+  if (!difficulties.some((difficulty) => difficulty.id === difficultyId)) return;
+
+  selectedDifficultyId = difficultyId;
+  localStorage.setItem(DIFFICULTY_KEY, selectedDifficultyId);
+  renderDifficultySelector(true);
+  updateLevelRecordLabels();
+  window.dispatchEvent(new CustomEvent('hamster-run-mode-change', { detail: selectedMode() }));
+
+  if (advance) {
     showStep('character', true);
   }
 }
 
 function resetFlowSelections() {
   selectedModeId = null;
+  selectedDifficultyId = null;
   characterChosenInFlow = false;
   modeSelectorRenderedFor = '';
+  difficultySelectorRenderedFor = '';
   renderModeSelector(true);
+  renderDifficultySelector(true);
   clearButtonSelection(document.querySelector('#characterGrid'));
 }
 
@@ -74,15 +157,17 @@ function readJson(key) {
 
 function recordForLevel(levelId) {
   const modeId = selectedModeId || 'endless';
+  const difficultyId = selectedDifficultyId || 'medium';
   const modeRecords = readJson(MODE_RECORD_KEY);
   const legacyRecords = readJson(LEGACY_RECORD_KEY);
+  const difficultyRecord = modeRecords[`${modeId}:${difficultyId}:${levelId}`] || 0;
   const modeRecord = modeRecords[`${modeId}:${levelId}`] || 0;
 
-  if (modeId === 'endless') {
-    return Math.max(modeRecord, legacyRecords[levelId] || 0);
+  if (modeId === 'endless' && difficultyId === 'medium') {
+    return Math.max(difficultyRecord, modeRecord, legacyRecords[levelId] || 0);
   }
 
-  return modeRecord;
+  return Math.max(difficultyRecord, modeRecord);
 }
 
 function injectStepperStyles() {
@@ -95,7 +180,7 @@ function injectStepperStyles() {
 
     .selection-progress {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 8px;
       margin: 14px 0 12px;
     }
@@ -104,9 +189,9 @@ function injectStepperStyles() {
       border-radius: 999px;
       background: rgba(56, 40, 22, 0.1);
       color: #74532b;
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       font-weight: 900;
-      padding: 7px 8px;
+      padding: 7px 6px;
       text-align: center;
       text-transform: uppercase;
     }
@@ -143,6 +228,7 @@ function injectStepperStyles() {
     }
 
     .mode-grid,
+    .difficulty-grid,
     .character-grid,
     .level-grid {
       scroll-padding: 12px;
@@ -153,6 +239,17 @@ function injectStepperStyles() {
       touch-action: pan-y;
       padding-right: 4px;
       padding-bottom: 8px;
+    }
+
+    .difficulty-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .difficulty-card,
+    .mode-card {
+      width: 100%;
     }
 
     .selection-step-help {
@@ -188,8 +285,9 @@ function ensureStepper() {
   progress.setAttribute('aria-label', 'Progreso de selección');
   progress.innerHTML = `
     <span data-step-indicator="mode">Modo</span>
+    <span data-step-indicator="difficulty">Nivel</span>
     <span data-step-indicator="character">Personaje</span>
-    <span data-step-indicator="level">Ruta</span>
+    <span data-step-indicator="level">Pantalla</span>
   `;
 
   heading?.after(progress);
@@ -209,7 +307,27 @@ function ensureModeSelector() {
   section.innerHTML = `
     <p class="eyebrow">Modo</p>
     <div class="mode-grid" id="modeGrid"></div>
-    <p class="selection-step-help">Elige un modo.</p>
+    <p class="selection-step-help">Elige el tipo de partida.</p>
+  `;
+
+  menuScrollArea.insertBefore(section, characterSelect || menuScrollArea.firstChild);
+}
+
+function ensureDifficultySelector() {
+  const menuScrollArea = document.querySelector('.menu-scroll-area');
+  const characterSelect = document.querySelector('.character-select');
+
+  if (!menuScrollArea || document.querySelector('#difficultySelect')) return;
+
+  const section = document.createElement('div');
+  section.id = 'difficultySelect';
+  section.className = 'difficulty-select selection-step';
+  section.dataset.step = 'difficulty';
+  section.setAttribute('aria-label', 'Selector de nivel de dificultad');
+  section.innerHTML = `
+    <p class="eyebrow">Nivel</p>
+    <div class="difficulty-grid" id="difficultyGrid"></div>
+    <p class="selection-step-help">Este nivel se aplica a cualquier pantalla que elijas después.</p>
   `;
 
   menuScrollArea.insertBefore(section, characterSelect || menuScrollArea.firstChild);
@@ -223,8 +341,8 @@ function ensureLevelSection() {
   wrapper.id = 'levelSelect';
   wrapper.className = 'level-select selection-step';
   wrapper.dataset.step = 'level';
-  wrapper.setAttribute('aria-label', 'Selector de nivel');
-  wrapper.innerHTML = `<p class="eyebrow">Nivel</p>`;
+  wrapper.setAttribute('aria-label', 'Selector de pantalla');
+  wrapper.innerHTML = `<p class="eyebrow">Pantalla</p>`;
   levelGrid.parentNode.insertBefore(wrapper, levelGrid);
   wrapper.append(levelGrid);
 }
@@ -233,6 +351,7 @@ function ensureStepStructure() {
   injectStepperStyles();
   ensureStepper();
   ensureModeSelector();
+  ensureDifficultySelector();
   ensureLevelSection();
 
   const characterSelect = document.querySelector('.character-select');
@@ -335,17 +454,56 @@ function renderModeSelector(force = false) {
   }
 }
 
+function renderDifficultySelector(force = false) {
+  ensureStepStructure();
+
+  const grid = document.querySelector('#difficultyGrid');
+  if (!grid) return;
+
+  const renderKey = `${selectedDifficultyId || 'none'}:${difficulties.length}`;
+  if (!force && difficultySelectorRenderedFor === renderKey && grid.children.length === difficulties.length) return;
+
+  difficultySelectorRenderedFor = renderKey;
+  grid.replaceChildren();
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', 'Selector de nivel');
+
+  for (const difficulty of difficulties) {
+    const button = document.createElement('button');
+    const selected = difficulty.id === selectedDifficultyId;
+
+    button.type = 'button';
+    button.className = 'difficulty-card mode-card';
+    button.dataset.difficulty = difficulty.id;
+    button.setAttribute('aria-pressed', String(selected));
+    button.setAttribute('aria-current', selected ? 'true' : 'false');
+    button.setAttribute('aria-label', `${difficulty.name}. ${difficulty.detail}${selected ? ' Seleccionado.' : ''}`);
+    button.innerHTML = `
+      <span><strong>${difficulty.name}</strong>${difficulty.detail}</span>
+      <b>${difficulty.tag}</b>
+    `;
+    button.addEventListener('click', () => setSelectedDifficulty(difficulty.id, true));
+    grid.append(button);
+  }
+}
+
 function updateLevelRecordLabels() {
   const cards = [...document.querySelectorAll('#levelGrid .level-card')];
   const mode = selectedMode();
+  const difficulty = selectedDifficulty();
 
   cards.forEach((card, index) => {
     const levelId = LEVEL_IDS[index];
     const small = card.querySelector('small');
+    const strong = card.querySelector('strong');
+
+    if (strong && strong.textContent === 'Tutorial') {
+      strong.textContent = 'Pantalla tutorial';
+    }
 
     if (!levelId || !small) return;
 
-    const nextText = `Récord ${mode.name}: ${recordForLevel(levelId)}`;
+    const nextText = `Récord ${mode.name} · ${difficulty.name}: ${recordForLevel(levelId)}`;
     if (small.textContent !== nextText) {
       small.textContent = nextText;
     }
@@ -378,13 +536,15 @@ function showStep(step, focus = false) {
 
   const titles = {
     mode: 'Modo',
+    difficulty: 'Nivel',
     character: 'Personaje',
-    level: 'Ruta',
+    level: 'Pantalla',
   };
   const descriptions = {
     mode: '',
+    difficulty: '',
     character: '',
-    level: '',
+    level: selectedDifficultyId ? `Nivel elegido: ${selectedDifficulty().name}` : '',
   };
 
   if (title) title.textContent = titles[step];
@@ -408,6 +568,7 @@ function showStep(step, focus = false) {
 
   if (backButton) backButton.hidden = step === 'mode';
 
+  updateLevelRecordLabels();
   resetStepScroll();
 
   if (focus) {
@@ -422,7 +583,7 @@ function resetStepScroll() {
   if (panel) panel.scrollTo({ top: 0, behavior: 'smooth' });
   activeStep?.scrollTo?.({ top: 0, behavior: 'instant' });
 
-  const grid = activeStep?.querySelector('.mode-grid, .character-grid, .level-grid');
+  const grid = activeStep?.querySelector('.mode-grid, .difficulty-grid, .character-grid, .level-grid');
   grid?.scrollTo?.({ top: 0, behavior: 'instant' });
 }
 
@@ -436,9 +597,9 @@ function focusCurrentStep() {
   });
 }
 
-function setupModeKeyboard() {
+function setupGridKeyboard(selector) {
   document.addEventListener('keydown', (event) => {
-    const grid = document.querySelector('#modeGrid');
+    const grid = document.querySelector(selector);
     if (!grid || !grid.contains(document.activeElement)) return;
     if (!['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End', 'Enter', ' '].includes(event.key)) return;
 
@@ -460,6 +621,11 @@ function setupModeKeyboard() {
   });
 }
 
+function setupModeKeyboard() {
+  setupGridKeyboard('#modeGrid');
+  setupGridKeyboard('#difficultyGrid');
+}
+
 function install() {
   const menu = document.querySelector('#menu');
 
@@ -469,6 +635,7 @@ function install() {
 
       window.requestAnimationFrame(() => {
         renderModeSelector();
+        renderDifficultySelector();
         updateLevelRecordLabels();
 
         if (visible && !menuWasVisible) {
@@ -484,6 +651,7 @@ function install() {
   }
 
   renderModeSelector(true);
+  renderDifficultySelector(true);
   updateLevelRecordLabels();
   showStep('mode');
   setupModeKeyboard();
@@ -491,9 +659,13 @@ function install() {
 
 window.HamsterRunModes = {
   all: modes,
+  difficulties,
   getSelectedMode: selectedMode,
   getSelectedModeId: () => selectedMode().id,
+  getSelectedDifficulty: selectedDifficulty,
+  getSelectedDifficultyId: () => selectedDifficulty().id,
   setSelectedMode,
+  setSelectedDifficulty,
   refreshRecords: updateLevelRecordLabels,
   showStep,
 };
