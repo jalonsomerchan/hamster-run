@@ -215,6 +215,33 @@ const PLATFORM_HEIGHT = 40;
 const LANDING_ZONE = 78;
 const START_SAFE_PLATFORMS = 7;
 const MOVING_PLATFORM_AMPLITUDE = 42;
+const POWER_UP_TYPES = {
+  jumps: {
+    label: '+saltos',
+    color: '#39a8ff',
+    glow: 'rgba(57, 168, 255, 0.55)',
+    duration: 8,
+    score: 95,
+    symbol: '↑',
+  },
+  speed: {
+    label: 'turbo',
+    color: '#ff6546',
+    glow: 'rgba(255, 101, 70, 0.58)',
+    duration: 6,
+    score: 110,
+    speedBonus: 92,
+    symbol: '»',
+  },
+  invincible: {
+    label: 'invencible',
+    color: '#ffd84a',
+    glow: 'rgba(255, 216, 74, 0.68)',
+    duration: 5.5,
+    score: 120,
+    symbol: '★',
+  },
+};
 
 const platformAssets = [
   { image: makeImage(platformWoodLong), crop: [10, 91, 238, 73], cap: 52, minWidth: 170 },
@@ -297,6 +324,7 @@ const state = {
   distance: 0,
   peanuts: 0,
   lives: 3,
+  maxLives: 3,
   invincible: 0,
   selectedLevel: 0,
   selectedCharacter: 0,
@@ -319,6 +347,7 @@ const player = {
 let platforms = [];
 let peanuts = [];
 let hearts = [];
+let powerUps = [];
 let enemies = [];
 let decor = [];
 let backgroundProps = [];
@@ -326,6 +355,7 @@ let bursts = [];
 let modeTimeLeft = null;
 let lifeRespawnDelay = 0;
 let pendingRespawnPoint = null;
+let activePowerUps = { jumps: 0, speed: 0, invincible: 0 };
 
 function makeImage(src) {
   const image = new Image();
@@ -347,6 +377,22 @@ function lerp(min, max, amount) {
 
 function lerpRange(startRange, endRange, amount) {
   return [lerp(startRange[0], endRange[0], amount), lerp(startRange[1], endRange[1], amount)];
+}
+
+function currentLivesCap() {
+  return Math.max(1, state.maxLives || state.level?.maxLives || 3);
+}
+
+function clampLives() {
+  state.lives = clamp(state.lives, 0, currentLivesCap());
+}
+
+function currentSpeedBonus() {
+  return activePowerUps.speed > 0 ? POWER_UP_TYPES.speed.speedBonus : 0;
+}
+
+function currentJumpLimit() {
+  return activePowerUps.jumps > 0 ? 4 : 2;
 }
 
 function selectedMode() {
@@ -509,12 +555,14 @@ function resetGame() {
   state.score = 0;
   state.distance = 0;
   state.peanuts = 0;
-  state.lives = 3;
+  state.maxLives = state.level.maxLives || 3;
+  state.lives = state.maxLives;
   state.invincible = 1.2;
   state.speedBoost = 0;
   state.shake = 0;
   state.platformCount = 0;
   modeTimeLeft = mode.timeLimit ?? null;
+  activePowerUps = { jumps: 0, speed: 0, invincible: 0 };
 
   player.x = Math.max(58, state.width * 0.18);
   player.y = floor - player.height;
@@ -522,21 +570,11 @@ function resetGame() {
   player.jumps = 0;
   player.grounded = false;
 
-  platforms = [
-    makePlatform(-35, floor, Math.max(340, state.width * 0.82), state.level.platformVariant),
-    {
-      ...makePlatform(
-        Math.max(260, state.width * 0.72),
-        floor - 8,
-        Math.max(260, state.width * 0.62),
-        state.level.platformVariant,
-      ),
-      starter: true,
-    },
-  ];
+  platforms = createInitialPlatforms(floor);
   state.platformCount = platforms.length;
   peanuts = [];
   hearts = [];
+  powerUps = [];
   enemies = [];
   decor = [];
   bursts = [];
@@ -554,6 +592,32 @@ function lastPlatformEnd() {
   return platforms.reduce((end, platform) => Math.max(end, platform.x + platform.width), 0);
 }
 
+function createInitialPlatforms(floor) {
+  const baseVariant = state.level.platformVariant;
+  const mainWidth = Math.max(440, state.width * 0.96);
+  const secondWidth = Math.max(280, state.width * 0.54);
+  const thirdWidth = Math.max(230, state.width * 0.42);
+  const first = {
+    ...makePlatform(-80, floor, mainWidth, baseVariant),
+    starter: true,
+    index: 0,
+    lane: closestLaneIndex(floor),
+  };
+  const second = {
+    ...makePlatform(mainWidth - 36, floor - 14, secondWidth, baseVariant),
+    starter: true,
+    index: 1,
+    lane: closestLaneIndex(floor - 14),
+  };
+  const third = {
+    ...makePlatform(mainWidth + secondWidth * 0.42, floor - 92, thirdWidth, (baseVariant + 1) % sprites.platforms.length),
+    starter: true,
+    index: 2,
+    lane: closestLaneIndex(floor - 92),
+  };
+  return [first, second, third];
+}
+
 function makePlatform(x, y, width, variant = 0) {
   return {
     id: state.platformCount,
@@ -567,7 +631,9 @@ function makePlatform(x, y, width, variant = 0) {
 }
 
 function currentDifficulty() {
-  return clamp((state.distance - 650) / 5200 + (selectedMode().difficultyBoost || 0), 0, 1);
+  const distanceRamp = (state.distance - 360) / 3000;
+  const timeRamp = state.time / 90;
+  return clamp(distanceRamp + timeRamp + (selectedMode().difficultyBoost || 0), 0, 1);
 }
 
 function laneY(index) {
@@ -596,15 +662,17 @@ function choosePlatformY(previous, gap, difficulty) {
   }
   const lanes = state.level.lanes || [0.52, 0.64, 0.74];
   const previousLane = previous.lane ?? closestLaneIndex(previous.baseY ?? previous.y);
-  const canStepTwo = difficulty > 0.55 && gap < 136;
-  const options = [-1, 0, 1, canStepTwo ? 2 : 0].filter((step) => {
+  const canStepTwo = difficulty > 0.38 && gap < 162;
+  const canStepDownTwo = difficulty > 0.58;
+  const options = [-1, 0, 1, canStepTwo ? 2 : 0, canStepDownTwo ? -2 : 0].filter((step) => {
     const nextLane = previousLane + step;
     return nextLane >= 0 && nextLane < lanes.length;
   });
-  const easierBias = previousLane === lanes.length - 1 && difficulty < 0.35 ? [-1, 0, 0, 0] : options;
+  const easierBias =
+    previousLane === lanes.length - 1 && difficulty < 0.24 ? [-1, 0, 0, 0] : previousLane === 0 && difficulty < 0.24 ? [0, 1, 1] : options;
   const step = easierBias[Math.floor(random(0, easierBias.length))];
   const lane = clamp(previousLane + step, 0, lanes.length - 1);
-  const wobble = random(-10, 10) * difficulty;
+  const wobble = random(-16, 16) * difficulty;
   return laneY(lane) + wobble;
 }
 
@@ -638,6 +706,92 @@ function createBackgroundProps() {
     });
   }
   return props;
+}
+
+function maybeSpawnPowerUp(platform, difficulty, tutorialSpec) {
+  if (tutorialSpec?.powerUp) {
+    spawnPowerUp(platform, tutorialSpec.powerUp, 0.54);
+    return;
+  }
+
+  if (state.level.tutorial || platform.index <= START_SAFE_PLATFORMS + 1 || platform.width < 170) {
+    return;
+  }
+
+  const chance = 0.045 + difficulty * 0.1;
+  if (Math.random() > chance) {
+    return;
+  }
+
+  const types = Object.keys(POWER_UP_TYPES);
+  const type = types[Math.floor(random(0, types.length))];
+  spawnPowerUp(platform, type, random(0.38, 0.7));
+}
+
+function spawnPowerUp(platform, type, positionRatio = 0.5) {
+  const radius = type === 'invincible' ? 18 : 16;
+  const yOffset = type === 'invincible' ? random(112, 136) : random(96, 124);
+  powerUps.push({
+    type,
+    x: platform.x + platform.width * positionRatio,
+    y: platform.y - yOffset,
+    width: radius * 2,
+    height: radius * 2,
+    size: radius * 2,
+    bob: random(0, Math.PI * 2),
+    pulse: random(0, Math.PI * 2),
+    taken: false,
+    platformId: platform.id,
+    yOffset,
+  });
+}
+
+function maybeSpawnAltPlatform(platform, difficulty) {
+  if (state.level.tutorial || platform.index <= START_SAFE_PLATFORMS || platform.width < 180) {
+    return;
+  }
+
+  const chance = 0.14 + difficulty * 0.28;
+  if (Math.random() > chance) {
+    return;
+  }
+
+  const lanes = state.level.lanes || [0.52, 0.64, 0.74];
+  const laneOffset = Math.random() < 0.5 ? -1 : 1;
+  const targetLane = clamp((platform.lane ?? closestLaneIndex(platform.y)) + laneOffset, 0, lanes.length - 1);
+  if (targetLane === (platform.lane ?? closestLaneIndex(platform.y))) {
+    return;
+  }
+
+  const width = clamp(platform.width * random(0.52, 0.82), 132, platform.width - 16);
+  const x = platform.x + random(18, Math.max(26, platform.width - width - 18));
+  const y = laneY(targetLane) + random(-8, 8);
+  const altPlatform = makePlatform(x, y, width, (platform.variant + 1) % sprites.platforms.length);
+  altPlatform.index = state.platformCount;
+  altPlatform.lane = targetLane;
+  altPlatform.branch = true;
+  altPlatform.baseY = y;
+  state.platformCount += 1;
+  maybeMakePlatformMoving(altPlatform, Math.max(0, difficulty - 0.08));
+  platforms.push(altPlatform);
+
+  if (Math.random() > 0.38) {
+    const peanutCount = Math.floor(random(1, 3));
+    for (let index = 0; index < peanutCount; index += 1) {
+      const yOffset = random(72, 100);
+      peanuts.push({
+        x: clamp(x + 40 + index * 38, x + 20, x + width - 28),
+        y: y - yOffset,
+        size: 28,
+        taken: false,
+        bob: random(0, Math.PI * 2),
+        platformId: altPlatform.id,
+        yOffset,
+      });
+    }
+  }
+
+  maybeSpawnPowerUp(altPlatform, difficulty);
 }
 
 function spawnPlatform(previous = platforms[platforms.length - 1]) {
@@ -684,7 +838,8 @@ function spawnPlatform(previous = platforms[platforms.length - 1]) {
     });
   }
 
-  const heartChance = platform.index > START_SAFE_PLATFORMS && state.lives < 5 ? 0.08 + difficulty * 0.05 : 0.025;
+  const heartChance =
+    platform.index > START_SAFE_PLATFORMS && state.lives < currentLivesCap() ? 0.06 + difficulty * 0.035 : 0.015;
   if (Math.random() < heartChance && platform.width > 190) {
     const yOffset = random(95, 128);
     hearts.push({
@@ -718,6 +873,9 @@ function spawnPlatform(previous = platforms[platforms.length - 1]) {
       yOffset: 25,
     });
   }
+
+  maybeSpawnPowerUp(platform, difficulty);
+  maybeSpawnAltPlatform(platform, difficulty);
 }
 
 function tutorialPlatformSpec(index) {
@@ -728,6 +886,9 @@ function tutorialPlatformSpec(index) {
     5: { gap: 100, width: 330, lane: 2, prompt: 'Evita enemigos', enemy: 'ground' },
     6: { gap: 116, width: 330, lane: 2, prompt: 'Písalo desde arriba', enemy: 'chestnut', peanuts: 1 },
     7: { gap: 92, width: 340, lane: 1, prompt: 'Sigue corriendo', heart: true, peanuts: 2 },
+    8: { gap: 98, width: 320, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
+    9: { gap: 112, width: 300, lane: 1, prompt: 'Rojo: turbo', powerUp: 'speed', peanuts: 1 },
+    10: { gap: 120, width: 310, lane: 2, prompt: 'Amarillo: invencible', powerUp: 'invincible', enemy: 'ground' },
   };
 
   if (scripted[index]) {
@@ -771,6 +932,10 @@ function spawnTutorialItems(platform, spec) {
 
   if (spec.enemy) {
     addTutorialEnemy(platform, spec.enemy);
+  }
+
+  if (spec.powerUp) {
+    spawnPowerUp(platform, spec.powerUp, 0.56);
   }
 }
 
@@ -874,7 +1039,7 @@ function jump() {
   if (state.mode !== 'running') {
     return;
   }
-  if (player.jumps >= 2) {
+  if (player.jumps >= currentJumpLimit()) {
     return;
   }
   const jumpCountBefore = player.jumps;
@@ -960,8 +1125,15 @@ function update(dt) {
 
   state.time += dt;
   state.invincible = Math.max(0, state.invincible - dt);
+  activePowerUps.jumps = Math.max(0, activePowerUps.jumps - dt);
+  activePowerUps.speed = Math.max(0, activePowerUps.speed - dt);
+  activePowerUps.invincible = Math.max(0, activePowerUps.invincible - dt);
+  if (activePowerUps.invincible > 0) {
+    state.invincible = Math.max(state.invincible, activePowerUps.invincible);
+  }
   state.speedBoost += dt * 2.6;
-  const speed = state.level.speed + (selectedMode().speedBoost || 0) + Math.min(82, state.speedBoost);
+  const speed =
+    state.level.speed + (selectedMode().speedBoost || 0) + currentSpeedBonus() + Math.min(82, state.speedBoost);
   const move = speed * dt;
   state.distance += move;
   state.shake = Math.max(0, state.shake - dt * 18);
@@ -973,7 +1145,7 @@ function update(dt) {
   player.y += player.vy * dt;
   player.grounded = false;
 
-  for (const group of [platforms, peanuts, hearts, enemies, decor, bursts]) {
+  for (const group of [platforms, peanuts, hearts, powerUps, enemies, decor, bursts]) {
     group.forEach((item) => {
       item.x -= move;
       if (item.platformLeft !== undefined) {
@@ -1001,6 +1173,10 @@ function update(dt) {
     burst.life -= dt;
     burst.y -= 42 * dt;
     burst.scale += 1.8 * dt;
+  });
+  powerUps.forEach((powerUp) => {
+    powerUp.bob += dt * 4.8;
+    powerUp.pulse += dt * 5.6;
   });
 
   for (const platform of platforms) {
@@ -1031,7 +1207,7 @@ function update(dt) {
   for (const heart of hearts) {
     if (!heart.taken && intersects(playerBox(7), itemBox(heart))) {
       heart.taken = true;
-      state.lives = Math.min(6, state.lives + 1);
+      state.lives = Math.min(currentLivesCap(), state.lives + 1);
       state.score += 110;
       playSound('heart');
       bursts.push({
@@ -1042,6 +1218,12 @@ function update(dt) {
         scale: 0.58,
         color: '#ff3f66',
       });
+    }
+  }
+
+  for (const powerUp of powerUps) {
+    if (!powerUp.taken && intersects(playerBox(7), itemBox(powerUp))) {
+      collectPowerUp(powerUp);
     }
   }
 
@@ -1062,6 +1244,7 @@ function update(dt) {
   platforms = platforms.filter((platform) => platform.x + platform.width > -80);
   peanuts = peanuts.filter((peanut) => peanut.x > -80 && !peanut.taken);
   hearts = hearts.filter((heart) => heart.x > -80 && !heart.taken);
+  powerUps = powerUps.filter((powerUp) => powerUp.x > -80 && !powerUp.taken);
   enemies = enemies.filter((enemy) => enemy.x > -100 && !enemy.defeated);
   decor = decor.filter((item) => item.x > -80);
   bursts = bursts.filter((burst) => burst.life > 0);
@@ -1070,6 +1253,7 @@ function update(dt) {
     spawnPlatform(platforms[platforms.length - 1]);
   }
 
+  clampLives();
   state.score = Math.max(state.score, Math.floor(state.distance * 0.18 + state.time * 12 + state.peanuts * 75));
   updateHud();
 }
@@ -1101,7 +1285,7 @@ function updateMovingPlatforms(dt, wasGrounded) {
     platform.dy = platform.y - previousY;
   });
 
-  for (const item of [...peanuts, ...hearts, ...enemies, ...decor]) {
+  for (const item of [...peanuts, ...hearts, ...powerUps, ...enemies, ...decor]) {
     if (item.platformId === undefined || item.kind === 'flying') {
       continue;
     }
@@ -1123,6 +1307,29 @@ function updateMovingPlatforms(dt, wasGrounded) {
   if (standingPlatform?.moving) {
     player.y += standingPlatform.dy || 0;
   }
+}
+
+function collectPowerUp(powerUp) {
+  const definition = POWER_UP_TYPES[powerUp.type];
+  if (!definition) {
+    return;
+  }
+
+  powerUp.taken = true;
+  activePowerUps[powerUp.type] = Math.max(activePowerUps[powerUp.type], definition.duration);
+  if (powerUp.type === 'invincible') {
+    state.invincible = Math.max(state.invincible, definition.duration);
+  }
+  state.score += definition.score;
+  playSound(powerUp.type === 'speed' ? 'peanut' : 'heart');
+  bursts.push({
+    x: powerUp.x + powerUp.size / 2,
+    y: powerUp.y + powerUp.size / 2,
+    ttl: 0.48,
+    life: 0.48,
+    scale: 0.7,
+    color: definition.glow,
+  });
 }
 
 function canStomp(enemy, previousBottom) {
@@ -1284,13 +1491,17 @@ function endGame() {
 
 function updateHud() {
   const lives = Math.max(0, Math.floor(state.lives));
+  const activeEffect = Object.entries(activePowerUps)
+    .filter(([, remaining]) => remaining > 0)
+    .sort((a, b) => b[1] - a[1])[0];
   scoreEl.textContent = String(Math.floor(state.score));
   peanutsEl.textContent = String(state.peanuts);
   timeEl.textContent =
     modeTimeLeft === null ? `${Math.floor(state.time)}s` : `${Math.max(0, Math.ceil(modeTimeLeft))}s`;
   timeLabelEl.textContent = modeTimeLeft === null ? 'Tiempo' : 'Resta';
   livesEl.textContent = '♥'.repeat(lives);
-  livesEl.setAttribute('aria-label', lives === 1 ? '1 vida' : `${lives} vidas`);
+  livesEl.setAttribute('aria-label', `${lives} de ${currentLivesCap()} vidas`);
+  canvas.dataset.powerup = activeEffect ? `${POWER_UP_TYPES[activeEffect[0]].label} ${Math.ceil(activeEffect[1])}s` : '';
 }
 
 function draw() {
@@ -1313,9 +1524,12 @@ function draw() {
     drawTutorialPrompts();
     peanuts.forEach(drawPeanut);
     hearts.forEach(drawHeart);
+    powerUps.forEach(drawPowerUp);
     enemies.forEach(drawEnemy);
     bursts.forEach(drawBurst);
+    drawInvincibleGlow();
     drawHamster();
+    drawActivePowerUpBadge();
   }
 
   ctx.restore();
@@ -1509,6 +1723,87 @@ function drawHeart(heart) {
     size,
     size,
   );
+  ctx.restore();
+}
+
+function drawPowerUp(powerUp) {
+  const definition = POWER_UP_TYPES[powerUp.type];
+  if (!definition) {
+    return;
+  }
+
+  const radius = powerUp.size / 2;
+  const cx = powerUp.x + radius;
+  const cy = powerUp.y + radius + Math.sin(powerUp.bob) * 5;
+  const pulse = 1 + Math.sin(powerUp.pulse) * 0.08;
+
+  ctx.save();
+  ctx.globalAlpha = 0.94;
+  ctx.shadowColor = definition.glow;
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * pulse, 0, Math.PI * 2);
+  ctx.fillStyle = definition.color;
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.88)';
+  ctx.stroke();
+  ctx.fillStyle = '#fff8ef';
+  ctx.font = '900 18px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(definition.symbol, cx, cy + 1);
+  ctx.restore();
+}
+
+function drawInvincibleGlow() {
+  if (activePowerUps.invincible <= 0 || state.mode !== 'running') {
+    return;
+  }
+
+  const cx = player.x + player.width / 2;
+  const cy = player.y + player.height / 2;
+  const radius = Math.max(player.width, player.height) * (0.92 + Math.sin(state.time * 14) * 0.06);
+  ctx.save();
+  ctx.globalAlpha = 0.62;
+  ctx.shadowColor = POWER_UP_TYPES.invincible.glow;
+  ctx.shadowBlur = 18;
+  ctx.strokeStyle = '#ffe36b';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawActivePowerUpBadge() {
+  const activeEffect = Object.entries(activePowerUps)
+    .filter(([, remaining]) => remaining > 0)
+    .sort((a, b) => b[1] - a[1])[0];
+  if (!activeEffect || state.mode !== 'running') {
+    return;
+  }
+
+  const [type, remaining] = activeEffect;
+  const definition = POWER_UP_TYPES[type];
+  const text = `${definition.label} ${Math.ceil(remaining)}s`;
+
+  ctx.save();
+  ctx.font = '800 16px system-ui, sans-serif';
+  const width = Math.min(196, Math.max(120, ctx.measureText(text).width + 34));
+  const x = clamp(player.x + player.width / 2 - width / 2, 12, state.width - width - 12);
+  const y = Math.max(74, player.y - 42);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  roundRect(x, y, width, 34, 17);
+  ctx.fillStyle = 'rgba(18, 21, 32, 0.76)';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = definition.color;
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, x + width / 2, y + 18);
   ctx.restore();
 }
 
