@@ -77,7 +77,11 @@ function patchSource(source) {
     .replace(/function\s+loseLife\s*\(/g, 'function originalLoseLife(')
     .replace(/function\s+respawnPlayerAfterLifeLoss\s*\(/g, 'function originalRespawnPlayerAfterLifeLoss(')
     .replace(/function\s+jump\s*\(/g, 'function originalJump(')
-    .replace(/function\s+endGame\s*\(/g, 'function originalEndGame(');
+    .replace(/function\s+endGame\s*\(/g, 'function originalEndGame(')
+    .replace(/state\.lives = 3;/g, 'state.lives = Math.min(3, maxLivesForCurrentLevel());')
+    .replace(/state\.lives \+= 1;/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')
+    .replace(/state\.lives = state\.lives \+ 1;/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')
+    .replace(/state\.lives < 5/g, 'state.lives < maxLivesForCurrentLevel()');
 
   if (!/function\s+itemBox\s*\(/.test(patched)) {
     patched += `\nfunction itemBox(item) {\n  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;\n  return { x: item.x, y: item.y, width: item.width || size, height: item.height || size };\n}\n`;
@@ -100,6 +104,12 @@ let seededRandom = null;
 
 function selectedMode() {
   return currentGameMode || window.HamsterRunModes?.getSelectedMode?.() || { id: 'endless', name: 'Endless', timeLimit: null, seed: null };
+}
+
+function maxLivesForCurrentLevel() {
+  const configuredMax = Number(state.level?.maxLives ?? state.level?.max_lives ?? 5);
+  if (!Number.isFinite(configuredMax) || configuredMax < 1) return 5;
+  return Math.floor(configuredMax);
 }
 
 function readRecords() {
@@ -137,6 +147,7 @@ function resetGame() {
   seededRandom = currentGameMode.seed ? makeSeededRandom(String(currentGameMode.seed) + ':' + state.selectedLevel) : null;
 
   withModeRandom(() => originalResetGame());
+  state.lives = Math.min(state.lives, maxLivesForCurrentLevel());
   updateModeHud();
 }
 
@@ -329,6 +340,7 @@ update = function updateWithPatches(dt) {
   const peanutsBefore = state.peanuts;
   const livesBefore = state.lives;
   withModeRandom(() => originalUpdate(dt));
+  state.lives = Math.min(state.lives, maxLivesForCurrentLevel());
   updateModeTimer(dt);
   if (state.peanuts > peanutsBefore) playSound('peanut');
   if (state.lives > livesBefore) playSound('heart');
@@ -401,7 +413,7 @@ function setupMobileSafeControls() {
 
 function renderLifeHearts() {
   if (!livesEl) return;
-  const visibleLives = Math.max(0, Math.floor(state.lives));
+  const visibleLives = Math.max(0, Math.min(maxLivesForCurrentLevel(), Math.floor(state.lives)));
   livesEl.textContent = '♥'.repeat(visibleLives);
   livesEl.style.backgroundImage = 'none';
   livesEl.style.width = 'auto';
