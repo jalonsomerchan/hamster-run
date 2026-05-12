@@ -260,6 +260,7 @@ function ensureStepStructure() {
 
 function ensureStepActions() {
   const levelPanel = document.querySelector('.level-panel');
+  const panelFooter = document.querySelector('.panel-footer');
   const startButton = document.querySelector('#startButton');
   if (!levelPanel || document.querySelector('#selectionStepActions')) return;
 
@@ -271,7 +272,14 @@ function ensureStepActions() {
     <button id="selectionNextButton" class="primary-button" type="button" hidden>Continuar</button>
   `;
 
-  levelPanel.insertBefore(actions, startButton);
+  if (panelFooter && startButton && startButton.parentNode === panelFooter) {
+    panelFooter.insertBefore(actions, startButton);
+  } else if (panelFooter) {
+    panelFooter.prepend(actions);
+  } else {
+    levelPanel.append(actions);
+  }
+
   document.querySelector('#selectionBackButton')?.addEventListener('click', () => goStep(-1));
 }
 
