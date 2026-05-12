@@ -154,7 +154,56 @@ function resetGame() {
   clearPowerUpEffects();
 
   withModeRandom(() => originalResetGame());
+  improveStarterPlatforms();
   updateModeHud();
+}
+
+function improveStarterPlatforms() {
+  if (state.level?.tutorial || platforms.length < 2) return;
+
+  const floor = state.height * 0.7;
+  const first = platforms[0];
+  const second = platforms[1];
+  const oldSecondEnd = second.x + second.width;
+
+  first.x = -34;
+  first.y = floor;
+  first.baseY = floor;
+  first.width = clamp(state.width * 0.74, 292, 348);
+  first.lane = closestLaneIndex(first.y);
+  first.starter = true;
+
+  const transitionGap = clamp(state.width * 0.16, 62, 92);
+  const transitionWidth = clamp(state.width * 0.46, 176, 238);
+  const transitionLift = clamp(state.height * 0.055, 34, 54);
+
+  second.x = first.x + first.width + transitionGap;
+  second.y = floor - transitionLift;
+  second.baseY = second.y;
+  second.width = transitionWidth;
+  second.lane = closestLaneIndex(second.y);
+  second.starter = true;
+
+  const delta = second.x + second.width - oldSecondEnd;
+  if (Math.abs(delta) < 0.5) return;
+
+  for (let index = 2; index < platforms.length; index += 1) {
+    platforms[index].x += delta;
+  }
+
+  shiftStarterSpawnedItems(peanuts, delta);
+  shiftStarterSpawnedItems(hearts, delta);
+  shiftStarterSpawnedItems(powerUps, delta);
+  shiftStarterSpawnedItems(enemies, delta);
+  shiftStarterSpawnedItems(decor, delta);
+}
+
+function shiftStarterSpawnedItems(items, delta) {
+  for (const item of items) {
+    if ((item.platformId ?? 0) >= 2) item.x += delta;
+    if ((item.platformLeft ?? 0) > 0) item.platformLeft += delta;
+    if ((item.platformRight ?? 0) > 0) item.platformRight += delta;
+  }
 }
 
 function currentDifficulty() {
