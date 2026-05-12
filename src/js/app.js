@@ -55,8 +55,10 @@ const finalScore = document.querySelector('#finalScore');
 const finalPeanuts = document.querySelector('#finalPeanuts');
 const finalTime = document.querySelector('#finalTime');
 const finalRecord = document.querySelector('#finalRecord');
+const timeLabelEl = timeEl.previousElementSibling;
 
 const RECORD_KEY = 'hamster-run-records-v1';
+const MODE_RECORD_KEY = 'hamster-run-records-v1-by-mode-v1';
 
 const levels = [
   {
@@ -321,6 +323,9 @@ let enemies = [];
 let decor = [];
 let backgroundProps = [];
 let bursts = [];
+let modeTimeLeft = null;
+let lifeRespawnDelay = 0;
+let pendingRespawnPoint = null;
 
 function makeImage(src) {
   const image = new Image();
@@ -344,10 +349,53 @@ function lerpRange(startRange, endRange, amount) {
   return [lerp(startRange[0], endRange[0], amount), lerp(startRange[1], endRange[1], amount)];
 }
 
+function selectedMode() {
+  return (
+    window.HamsterRunModes?.getSelectedMode?.() || {
+      id: 'endless',
+      name: 'Endless',
+      timeLimit: null,
+      difficultyBoost: 0,
+      speedBoost: 0,
+      enemyBoost: 0,
+    }
+  );
+}
+
+function selectedDifficultyId() {
+  return window.HamsterRunModes?.getSelectedDifficultyId?.() || 'medium';
+}
+
+function recordKeyForLevel(levelId) {
+  const mode = selectedMode();
+  return `${mode.id}:${selectedDifficultyId()}:${levelId}`;
+}
+
+function recordForLevel(levelId, records = readRecords()) {
+  const mode = selectedMode();
+  const modeDifficultyKey = recordKeyForLevel(levelId);
+  const modeKey = `${mode.id}:${levelId}`;
+  const legacy = records[levelId] || 0;
+
+  if (mode.id === 'endless' && selectedDifficultyId() === 'medium') {
+    return Math.max(records[modeDifficultyKey] || 0, records[modeKey] || 0, legacy);
+  }
+
+  return Math.max(records[modeDifficultyKey] || 0, records[modeKey] || 0);
+}
+
+function playSound(name) {
+  window.HamsterRunAudio?.play?.(name);
+}
+
 function readRecords() {
   try {
-    const raw = localStorage.getItem(RECORD_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const modeRaw = localStorage.getItem(MODE_RECORD_KEY);
+    const legacyRaw = localStorage.getItem(RECORD_KEY);
+    return {
+      ...(modeRaw ? JSON.parse(modeRaw) : {}),
+      ...(legacyRaw ? JSON.parse(legacyRaw) : {}),
+    };
   } catch {
     return {};
   }
@@ -355,10 +403,21 @@ function readRecords() {
 
 function saveRecord(levelId, score) {
   const records = readRecords();
-  const previous = records[levelId] || 0;
+  const mode = selectedMode();
+  const modeDifficultyKey = recordKeyForLevel(levelId);
+  const modeKey = `${mode.id}:${levelId}`;
+  const previous = recordForLevel(levelId, records);
   const next = Math.max(previous, Math.floor(score));
-  records[levelId] = next;
-  localStorage.setItem(RECORD_KEY, JSON.stringify(records));
+
+  records[modeDifficultyKey] = next;
+  records[modeKey] = Math.max(records[modeKey] || 0, next);
+
+  if (mode.id === 'endless' && selectedDifficultyId() === 'medium') {
+    records[levelId] = next;
+    localStorage.setItem(RECORD_KEY, JSON.stringify({ ...JSON.parse(localStorage.getItem(RECORD_KEY) || '{}'), [levelId]: next }));
+  }
+
+  localStorage.setItem(MODE_RECORD_KEY, JSON.stringify(records));
   return { previous, next, improved: next > previous };
 }
 
@@ -377,7 +436,7 @@ function buildLevelMenu() {
   const records = readRecords();
   levelGrid.innerHTML = '';
   levels.forEach((level, index) => {
-    const record = records[level.id] || 0;
+    const record = recordForLevel(level.id, records);
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'level-card';
@@ -442,6 +501,7 @@ function applyCharacter() {
 
 function resetGame() {
   const floor = state.height * 0.7;
+  const mode = selectedMode();
   applyCharacter();
   state.level = levels[state.selectedLevel];
   state.mode = 'running';
@@ -454,6 +514,7 @@ function resetGame() {
   state.speedBoost = 0;
   state.shake = 0;
   state.platformCount = 0;
+  modeTimeLeft = mode.timeLimit ?? null;
 
   player.x = Math.max(58, state.width * 0.18);
   player.y = floor - player.height;
@@ -506,7 +567,7 @@ function makePlatform(x, y, width, variant = 0) {
 }
 
 function currentDifficulty() {
-  return clamp((state.distance - 650) / 5200, 0, 1);
+  return clamp((state.distance - 650) / 5200 + (selectedMode().difficultyBoost || 0), 0, 1);
 }
 
 function laneY(index) {
@@ -637,7 +698,11 @@ function spawnPlatform(previous = platforms[platforms.length - 1]) {
     });
   }
 
-  const enemyChance = platform.index < START_SAFE_PLATFORMS ? 0 : level.enemyChance * clamp(difficulty + 0.18, 0, 1);
+  const enemyModifier = selectedMode().enemyBoost || 0;
+  const enemyChance =
+    platform.index < START_SAFE_PLATFORMS
+      ? 0
+      : (level.enemyChance + enemyModifier) * clamp(difficulty + 0.18, 0, 1);
   const freeSpace = platform.width - LANDING_ZONE * 2;
   if (Math.random() < enemyChance && freeSpace > 62) {
     const enemyX = platform.x + LANDING_ZONE + random(0, Math.max(8, freeSpace - 58));
@@ -812,9 +877,11 @@ function jump() {
   if (player.jumps >= 2) {
     return;
   }
+  const jumpCountBefore = player.jumps;
   player.vy = -state.level.jump * (player.jumps === 0 ? 1 : 0.88);
   player.jumps += 1;
   player.grounded = false;
+  playSound(jumpCountBefore > 0 ? 'doubleJump' : 'jump');
 }
 
 function showHome() {
@@ -862,18 +929,43 @@ async function shareGame() {
   }, 1400);
 }
 
+function updateModeTimer(dt) {
+  if (state.mode !== 'running' || modeTimeLeft === null) {
+    return;
+  }
+
+  modeTimeLeft = Math.max(0, modeTimeLeft - dt);
+  if (modeTimeLeft <= 0) {
+    endGame();
+  }
+}
+
 function update(dt) {
   if (state.mode !== 'running') {
+    return;
+  }
+
+  if (lifeRespawnDelay > 0) {
+    lifeRespawnDelay = Math.max(0, lifeRespawnDelay - dt);
+    state.time += dt;
+    state.invincible = Math.max(state.invincible, 1.3);
+    state.shake = Math.max(0, state.shake - dt * 18);
+    updateModeTimer(dt);
+    if (lifeRespawnDelay === 0) {
+      respawnPlayerAfterLifeLoss();
+    }
+    updateHud();
     return;
   }
 
   state.time += dt;
   state.invincible = Math.max(0, state.invincible - dt);
   state.speedBoost += dt * 2.6;
-  const speed = state.level.speed + Math.min(82, state.speedBoost);
+  const speed = state.level.speed + (selectedMode().speedBoost || 0) + Math.min(82, state.speedBoost);
   const move = speed * dt;
   state.distance += move;
   state.shake = Math.max(0, state.shake - dt * 18);
+  updateModeTimer(dt);
 
   player.vy += state.level.gravity * dt;
   const previousBottom = player.y + player.height;
@@ -932,6 +1024,7 @@ function update(dt) {
       peanut.taken = true;
       state.peanuts += 1;
       state.score += 75;
+      playSound('peanut');
     }
   }
 
@@ -940,6 +1033,7 @@ function update(dt) {
       heart.taken = true;
       state.lives = Math.min(6, state.lives + 1);
       state.score += 110;
+      playSound('heart');
       bursts.push({
         x: heart.x + heart.size / 2,
         y: heart.y + heart.size / 2,
@@ -1044,6 +1138,7 @@ function stompEnemy(enemy) {
   player.vy = -state.level.jump * 0.58;
   player.jumps = 1;
   state.score += 130;
+  playSound('stomp');
   bursts.push({
     x: enemy.x + enemy.width / 2,
     y: enemy.y + enemy.height / 2,
@@ -1101,12 +1196,82 @@ function intersects(a, b) {
   return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
+function findSafeRespawnPoint() {
+  const safePlatform =
+    platforms.find((platform) => platform.x <= player.x && platform.x + platform.width >= player.x + player.width) ||
+    platforms.find((platform) => platform.x + platform.width > player.x + player.width) ||
+    platforms[0];
+
+  if (!safePlatform) {
+    return null;
+  }
+
+  return {
+    x: clamp(player.x, safePlatform.x + 24, safePlatform.x + safePlatform.width - player.width - 24),
+    y: safePlatform.y - player.height,
+  };
+}
+
+function respawnPlayerAfterLifeLoss() {
+  const point = pendingRespawnPoint || findSafeRespawnPoint();
+  pendingRespawnPoint = null;
+
+  if (!point) {
+    endGame();
+    return;
+  }
+
+  player.x = point.x;
+  player.y = point.y;
+  player.vy = 0;
+  player.jumps = 0;
+  player.grounded = true;
+
+  const dangerPadding = 140;
+  enemies = enemies.filter((enemy) => {
+    const center = enemy.x + enemy.width / 2;
+    return center < player.x - dangerPadding || center > player.x + player.width + dangerPadding;
+  });
+}
+
+function loseLife() {
+  if (state.mode !== 'running' || state.invincible > 0 || lifeRespawnDelay > 0) {
+    return;
+  }
+
+  playSound('damage');
+  pendingRespawnPoint = findSafeRespawnPoint();
+  state.lives = Math.max(0, state.lives - 1);
+  state.invincible = 2.2;
+  state.shake = Math.max(state.shake, 2.4);
+  bursts.push({
+    x: clamp(player.x + player.width / 2, 20, state.width - 20),
+    y: clamp(player.y + player.height / 2, 70, state.height - 90),
+    ttl: 0.72,
+    life: 0.72,
+    scale: 0.72,
+    color: 'rgba(255, 65, 85, 0.74)',
+  });
+
+  if (state.lives <= 0) {
+    endGame();
+    return;
+  }
+
+  lifeRespawnDelay = 0.8;
+  player.y = state.height + 180;
+  player.vy = 0;
+  player.grounded = false;
+  updateHud();
+}
+
 function endGame() {
   if (state.mode !== 'running') {
     return;
   }
   state.mode = 'over';
   state.shake = 4;
+  playSound('gameOver');
   const record = saveRecord(state.level.id, state.score);
   finalScore.textContent = String(Math.floor(state.score));
   finalPeanuts.textContent = String(state.peanuts);
@@ -1118,9 +1283,14 @@ function endGame() {
 }
 
 function updateHud() {
+  const lives = Math.max(0, Math.floor(state.lives));
   scoreEl.textContent = String(Math.floor(state.score));
   peanutsEl.textContent = String(state.peanuts);
-  timeEl.textContent = `${Math.floor(state.time)}s`;
+  timeEl.textContent =
+    modeTimeLeft === null ? `${Math.floor(state.time)}s` : `${Math.max(0, Math.ceil(modeTimeLeft))}s`;
+  timeLabelEl.textContent = modeTimeLeft === null ? 'Tiempo' : 'Resta';
+  livesEl.textContent = '♥'.repeat(lives);
+  livesEl.setAttribute('aria-label', lives === 1 ? '1 vida' : `${lives} vidas`);
 }
 
 function draw() {
@@ -1517,8 +1687,14 @@ shareButton.addEventListener('click', () => {
   });
 });
 gameMenuButton.addEventListener('click', showLevelSelect);
+gameMenuButton.addEventListener('click', () => playSound('pause'), { capture: true });
 retryButton.addEventListener('click', resetGame);
 levelsButton.addEventListener('click', showLevelSelect);
+
+window.addEventListener('hamster-run-mode-change', () => {
+  buildLevelMenu();
+  updateHud();
+});
 
 resize();
 applyCharacter();
