@@ -77,7 +77,8 @@ function patchSource(source) {
     .replace(/function\s+loseLife\s*\(/g, 'function originalLoseLife(')
     .replace(/function\s+respawnPlayerAfterLifeLoss\s*\(/g, 'function originalRespawnPlayerAfterLifeLoss(')
     .replace(/function\s+jump\s*\(/g, 'function originalJump(')
-    .replace(/function\s+endGame\s*\(/g, 'function originalEndGame(');
+    .replace(/function\s+endGame\s*\(/g, 'function originalEndGame(')
+    .replace(/return clamp\(\(state\.distance - 650\) \/ 5200, 0, 1\);/g, 'return clamp((state.distance - 450) / 3400, 0, 1);');
 
   if (!/function\s+itemBox\s*\(/.test(patched)) {
     patched += `\nfunction itemBox(item) {\n  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;\n  return { x: item.x, y: item.y, width: item.width || size, height: item.height || size };\n}\n`;
