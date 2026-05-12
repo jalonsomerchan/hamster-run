@@ -481,7 +481,7 @@ function drawPowerUpTimerOverlay() {
   ctx.textBaseline = 'middle';
   const width = Math.min(190, ctx.measureText(text).width + 34);
   ctx.fillStyle = 'rgba(20, 24, 36, 0.74)';
-  roundRect(ctx, x - width / 2, y - 18, width, 36, 18);
+  powerUpRoundRect(ctx, x - width / 2, y - 18, width, 36, 18);
   ctx.fill();
   ctx.strokeStyle = def.color;
   ctx.lineWidth = 2;
@@ -513,7 +513,7 @@ function drawInvincibleGlow() {
   ctx.restore();
 }
 
-function roundRect(targetCtx, x, y, width, height, radius) {
+function powerUpRoundRect(targetCtx, x, y, width, height, radius) {
   const r = Math.min(radius, width / 2, height / 2);
   targetCtx.beginPath();
   targetCtx.moveTo(x + r, y);
