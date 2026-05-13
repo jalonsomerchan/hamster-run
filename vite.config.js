@@ -79,20 +79,68 @@ function replaceFunction(source, functionName, replacement) {
   throw new Error(`No se pudo cerrar el cuerpo de ${functionName}`);
 }
 
-function safeRespawnPositionPlugin() {
-  return {
-    name: 'safe-respawn-position',
-    enforce: 'pre',
-    transform(code, id) {
-      if (!id.endsWith(POWERUPS_BOOTSTRAP_SUFFIX)) {
-        return null;
-      }
+function patchLifeLimits(code) {
+  const difficultyPatch =
+    ".replace(/return clamp\\(\\(state\\.distance - 650\\) \\/ 5200, 0, 1\\);/g, 'return clamp((state.distance - 450) / 3400, 0, 1);');";
+  const livesPatch =
+    ".replace(/return clamp\\(\\(state\\.distance - 650\\) \\/ 5200, 0, 1\\);/g, 'return clamp((state.distance - 450) / 3400, 0, 1);')\n" +
+    "    .replace(/state\\.lives = 3;/g, 'state.lives = Math.min(3, maxLivesForCurrentLevel());')\n" +
+    "    .replace(/state\\.lives \\+= 1;/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')\n" +
+    "    .replace(/state\\.lives = state\\.lives \\+ 1;/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')\n" +
+    "    .replace(/state\\.lives = Math\\.min\\(6, state\\.lives \\+ 1\\);/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')\n" +
+    "    .replace(/state\\.lives < 5/g, 'state.lives < maxLivesForCurrentLevel()');";
 
-      return {
-        code: replaceFunction(
-          code,
-          'findSafeRespawnPoint',
-          `function findSafeRespawnPoint() {
+  let patched = code.replace(difficultyPatch, livesPatch);
+
+  patched = replaceFunction(
+    patched,
+    'selectedMode',
+    `function selectedMode() {
+  return currentGameMode || window.HamsterRunModes?.getSelectedMode?.() || { id: 'endless', name: 'Endless', timeLimit: null, seed: null };
+}
+
+function maxLivesForCurrentLevel() {
+  const configuredMax = Number(state.level?.maxLives ?? state.level?.max_lives ?? state.maxLives ?? 5);
+  if (!Number.isFinite(configuredMax) || configuredMax < 1) return 5;
+  return Math.floor(configuredMax);
+}`,
+  );
+
+  patched = replaceFunction(
+    patched,
+    'resetGame',
+    `function resetGame() {
+  currentGameMode = window.HamsterRunModes?.getSelectedMode?.() || selectedMode();
+  modeTimeLeft = currentGameMode.timeLimit ?? null;
+  seededRandom = currentGameMode.seed ? makeSeededRandom(String(currentGameMode.seed) + ':' + state.selectedLevel) : null;
+  powerUps.length = 0;
+  clearPowerUpEffects();
+
+  withModeRandom(() => originalResetGame());
+  state.lives = Math.min(state.lives, maxLivesForCurrentLevel());
+  improveStarterPlatforms();
+  updateModeHud();
+}`,
+  );
+
+  patched = patched.replace(
+    'withModeRandom(() => originalUpdate(dt));\n  updateModeTimer(dt);',
+    'withModeRandom(() => originalUpdate(dt));\n  state.lives = Math.min(state.lives, maxLivesForCurrentLevel());\n  updateModeTimer(dt);',
+  );
+
+  patched = patched.replace(
+    'const visibleLives = Math.max(0, Math.floor(state.lives));',
+    'const visibleLives = Math.max(0, Math.min(maxLivesForCurrentLevel(), Math.floor(state.lives)));',
+  );
+
+  return patched;
+}
+
+function patchSafeRespawn(code) {
+  return replaceFunction(
+    code,
+    'findSafeRespawnPoint',
+    `function findSafeRespawnPoint() {
   const screenSafe = respawnScreenSafeBounds();
   const targetX = clamp(player.x, screenSafe.left, screenSafe.right);
   const candidates = platforms
@@ -146,7 +194,20 @@ function fallbackRespawnPoint(screenSafe) {
     x: clamp(clamp(player.x, screenSafe.left, screenSafe.right), landingLeft, landingRight),
   };
 }`,
-        ),
+  );
+}
+
+function hamsterRuntimePatchPlugin() {
+  return {
+    name: 'hamster-runtime-patches',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.endsWith(POWERUPS_BOOTSTRAP_SUFFIX)) {
+        return null;
+      }
+
+      return {
+        code: patchSafeRespawn(patchLifeLimits(code)),
         map: null,
       };
     },
@@ -155,7 +216,7 @@ function fallbackRespawnPoint(screenSafe) {
 
 export default defineConfig({
   base: './',
-  plugins: [safeRespawnPositionPlugin(), tailwindcss()],
+  plugins: [hamsterRuntimePatchPlugin(), tailwindcss()],
   server: {
     host: '0.0.0.0',
     port: 5173,
