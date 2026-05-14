@@ -31,7 +31,7 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
   ],
   [
     'const width = random(level.platform[0], level.platform[1]);',
-    'const width = Math.max(96, random(level.platform[0], level.platform[1]) - ramp.platformShrink - pressure.platformShrink);',
+    'const width = Math.max(72, random(level.platform[0], level.platform[1]) - ramp.platformShrink - pressure.platformShrink);',
   ],
   [
     'const y = pickLane(previous?.lane);',
@@ -92,20 +92,20 @@ function highDifficultyPressure() {
   const enemyBoost = Math.max(0, mode?.enemyBoost || 0);
 
   return {
-    gap: clamp(boost * 95 + speedBoost * 0.42, 0, 210),
-    platformShrink: clamp(boost * 82 + speedBoost * 0.32, 0, 170),
-    vertical: clamp(boost * 72 + enemyBoost * 80, 0, 150),
+    gap: boost * 135 + speedBoost * 0.72,
+    platformShrink: boost * 118 + speedBoost * 0.54,
+    vertical: boost * 115 + enemyBoost * 130,
   };
 }
 
 function pickHarderLane(previousLane, verticalBonus = 0) {
   const lane = pickLane(previousLane);
-  if (verticalBonus <= 10 || Math.random() > clamp(verticalBonus / 118, 0, 0.82)) return lane;
+  if (verticalBonus <= 8 || Math.random() > clamp(verticalBonus / 96, 0, 0.9)) return lane;
 
   const lanes = laneY();
   const currentIndex = closestLaneIndex(lane);
   const direction = Math.random() < 0.5 ? -1 : 1;
-  const extraSteps = verticalBonus > 54 && Math.random() < clamp(verticalBonus / 150, 0.34, 0.78) ? 2 : 1;
+  const extraSteps = verticalBonus > 40 && Math.random() < clamp(verticalBonus / 125, 0.45, 0.9) ? 2 : 1;
   const nextIndex = clamp(currentIndex + direction * extraSteps, 0, lanes.length - 1);
   return lanes[nextIndex];
 }

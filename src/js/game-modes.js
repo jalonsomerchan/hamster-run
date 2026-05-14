@@ -8,15 +8,15 @@ const STEPS = ['mode', 'difficulty', 'character', 'level'];
 const modes = [
   { id: 'endless', name: 'Endless', detail: 'Libre', tag: 'Clásico', timeLimit: null, seed: null },
   { id: 'timeAttack', name: 'Contrarreloj', detail: '60 s', tag: '60s', timeLimit: 60, seed: null },
-  { id: 'challenge', name: 'Desafío', detail: 'Fijo', tag: 'Fijo', timeLimit: null, seed: 'hamster-run-daily-challenge-v1', difficultyBoost: 0.12 },
+  { id: 'challenge', name: 'Desafío', detail: 'Fijo', tag: 'Fijo', timeLimit: null, seed: 'hamster-run-daily-challenge-v1', difficultyBoost: 0.18 },
 ];
 
 const difficulties = [
   { id: 'tutorial', name: 'Tutorial', detail: 'Aprender sin presión', tag: 'Guía', difficultyBoost: -0.22, speedBoost: -16, enemyBoost: -0.18 },
   { id: 'basic', name: 'Básico', detail: 'Inicio cómodo', tag: 'Fácil', difficultyBoost: -0.1, speedBoost: -8, enemyBoost: -0.08 },
   { id: 'medium', name: 'Medio', detail: 'Ritmo normal', tag: 'Normal', difficultyBoost: 0, speedBoost: 0, enemyBoost: 0 },
-  { id: 'hard', name: 'Difícil', detail: 'Exigente desde el inicio', tag: 'Duro', difficultyBoost: 0.42, speedBoost: 58, enemyBoost: 0.2 },
-  { id: 'veryHard', name: 'Muy difícil', detail: 'Saltos ajustados', tag: 'Pro', difficultyBoost: 0.74, speedBoost: 96, enemyBoost: 0.34 },
+  { id: 'hard', name: 'Difícil', detail: 'Saltos largos ya', tag: 'Duro', difficultyBoost: 0.9, speedBoost: 132, enemyBoost: 0.44 },
+  { id: 'veryHard', name: 'Muy difícil', detail: 'Poco margen', tag: 'Pro', difficultyBoost: 1.35, speedBoost: 190, enemyBoost: 0.66 },
 ];
 
 let selectedModeId = null;
