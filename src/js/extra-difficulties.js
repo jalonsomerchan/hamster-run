@@ -2,20 +2,20 @@ const EXTRA_DIFFICULTIES = [
   {
     id: 'extreme',
     name: 'Extremo',
-    detail: 'Sin margen real',
+    detail: 'Sin descanso',
     tag: 'Máximo',
-    difficultyBoost: 1.08,
-    speedBoost: 142,
-    enemyBoost: 0.52,
+    difficultyBoost: 2.15,
+    speedBoost: 300,
+    enemyBoost: 1.12,
   },
   {
     id: 'impossible',
     name: 'Imposible',
-    detail: 'Brutal desde el inicio',
+    detail: 'Casi injusto',
     tag: 'Locura',
-    difficultyBoost: 1.55,
-    speedBoost: 210,
-    enemyBoost: 0.78,
+    difficultyBoost: 3.05,
+    speedBoost: 430,
+    enemyBoost: 1.65,
   },
 ];
 
