@@ -17,6 +17,36 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
   ],
 ];
 
+const PAUSE_CONTROLS_SOURCE = `
+window.HamsterRunPauseControls = {
+  getMode: () => state.mode,
+  pause() {
+    if (state.mode !== 'running') return false;
+    state.mode = 'paused';
+    syncGameChrome();
+    return true;
+  },
+  resume() {
+    if (state.mode !== 'paused') return false;
+    state.mode = 'running';
+    state.last = performance.now();
+    setActiveOverlay(null);
+    syncGameChrome();
+    return true;
+  },
+  restartLevel() {
+    resetGame();
+    return true;
+  },
+  goHome() {
+    state.mode = 'menu';
+    setActiveOverlay(home);
+    syncGameChrome();
+    return true;
+  },
+};
+`;
+
 const nativeBlob = window.Blob;
 const nativeFunction = window.Function;
 const nativeEval = window.eval;
@@ -26,10 +56,20 @@ let restored = false;
 function patchGameSource(source) {
   if (typeof source !== 'string' || !source.includes('Hamster Run')) return source;
 
-  return STARTER_PLATFORM_SOURCE_PATCHES.reduce(
+  const patchedSource = STARTER_PLATFORM_SOURCE_PATCHES.reduce(
     (nextSource, [from, to]) => nextSource.split(from).join(to),
     source,
   );
+
+  if (
+    patchedSource.includes('window.HamsterRunPauseControls') ||
+    !patchedSource.includes('function syncGameChrome') ||
+    !patchedSource.includes('function resetGame')
+  ) {
+    return patchedSource;
+  }
+
+  return `${patchedSource}\n${PAUSE_CONTROLS_SOURCE}`;
 }
 
 function shouldPatchBlob(parts) {
