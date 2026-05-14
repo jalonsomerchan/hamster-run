@@ -19,27 +19,39 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
   ],
   [
     'return clamp((state.distance - 450) / 3400, 0, 1);',
-    'return clamp((state.distance - 450) / 3400, 0, 1) + timeDifficultyRamp().difficulty;',
+    'return clamp((state.distance - 450) / 3400, 0, 4.5) + timeDifficultyRamp().difficulty;',
   ],
   [
-    'const chance = 0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies;',
-    'const chance = enemySpawnChance(0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies);',
+    'const gap = tutorialSpec?.gap ?? random(gapRange[0], Math.min(gapRange[1], state.width * 0.46));',
+    'const ramp = timeDifficultyRamp();\n  const pressure = highDifficultyPressure();\n  const gap = tutorialSpec?.gap ?? random(gapRange[0] + ramp.gap * 0.45 + pressure.gap * 0.5, Math.min(gapRange[1] + ramp.gap + pressure.gap, state.width * 0.72));',
   ],
   [
-    'const gap = random(level.gap[0], level.gap[1]);',
-    'const ramp = timeDifficultyRamp();\n  const pressure = highDifficultyPressure();\n  const gap = random(level.gap[0] + ramp.gap * 0.45 + pressure.gap * 0.5, level.gap[1] + ramp.gap + pressure.gap);',
+    'const minWidth = Math.max(widthRange[0], LANDING_ZONE * 2 + player.width);',
+    'const minWidth = Math.max(widthRange[0] - ramp.platformShrink - pressure.platformShrink, LANDING_ZONE + player.width);',
   ],
   [
-    'const width = random(level.platform[0], level.platform[1]);',
-    'const width = Math.max(72, random(level.platform[0], level.platform[1]) - ramp.platformShrink - pressure.platformShrink);',
+    'const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 28), state.width * 0.94);',
+    'const maxWidth = Math.min(Math.max(widthRange[1] - ramp.platformShrink - pressure.platformShrink, minWidth + 24), state.width * 0.94);',
   ],
   [
-    'const y = pickLane(previous?.lane);',
-    'const y = pickHarderLane(previous?.lane, ramp.vertical + pressure.vertical);',
+    'const y = tutorialSpec?.lane !== undefined ? laneY(tutorialSpec.lane) : choosePlatformY(previous, gap, difficulty);',
+    'const y = tutorialSpec?.lane !== undefined ? laneY(tutorialSpec.lane) : choosePlatformY(previous, gap, difficulty + (ramp.vertical + pressure.vertical) / 130);',
+  ],
+  [
+    'const enemyChance = platform.index < START_SAFE_PLATFORMS ? 0 : level.enemyChance * clamp(difficulty + 0.18, 0, 1);',
+    'const enemyChance = platform.index < START_SAFE_PLATFORMS ? 0 : enemySpawnChance(level.enemyChance * clamp(difficulty + 0.18, 0, 4));',
+  ],
+  [
+    'if (Math.random() < enemyChance && freeSpace > 62) {\n    const enemyX = platform.x + LANDING_ZONE + random(0, Math.max(8, freeSpace - 58));\n    spawnEnemy(platform, enemyX, difficulty);\n  }',
+    'if (enemyChance > 0 && freeSpace > 62) {\n    const enemyCount = enemySpawnCount(enemyChance, freeSpace);\n    for (let enemyIndex = 0; enemyIndex < enemyCount; enemyIndex += 1) {\n      const laneRatio = (enemyIndex + 1) / (enemyCount + 1);\n      const jitter = random(-18, 18);\n      const enemyX = platform.x + LANDING_ZONE + clamp(freeSpace * laneRatio + jitter, 0, Math.max(8, freeSpace - 58));\n      spawnEnemy(platform, enemyX, difficulty + enemyIndex * 0.15);\n    }\n  }',
   ],
   [
     'const scrollSpeed = (state.level.speed + (state.speedBoost || 0)) * dt;',
-    'const scrollSpeed = (state.level.speed + timeDifficultyRamp().speed + (state.speedBoost || 0)) * dt;',
+    'const scrollSpeed = (state.level.speed + timeDifficultyRamp().speed + selectedModeSpeedBoost() + (state.speedBoost || 0)) * dt;',
+  ],
+  [
+    'const scrollSpeed = ((state.level?.speed || 0) + (state.speedBoost || 0)) * dt;',
+    'const scrollSpeed = ((state.level?.speed || 0) + timeDifficultyRamp().speed + selectedModeSpeedBoost() + (state.speedBoost || 0)) * dt;',
   ],
 ];
 
@@ -85,6 +97,10 @@ function timeDifficultyRamp(seconds = state.time || 0) {
   };
 }
 
+function selectedModeSpeedBoost() {
+  return Math.max(0, selectedMode()?.speedBoost || 0);
+}
+
 function highDifficultyPressure() {
   const mode = selectedMode();
   const boost = Math.max(0, mode?.difficultyBoost || 0);
@@ -104,25 +120,27 @@ function enemyModeSettings() {
   return {
     disabled: modeId === 'peaceful',
     multiplier: modeId === 'horde' ? Math.max(1, mode?.enemySpawnMultiplier || 1) : 1,
+    boost: Math.max(0, mode?.enemyBoost || 0),
   };
 }
 
 function enemySpawnChance(baseChance) {
   const settings = enemyModeSettings();
   if (settings.disabled) return 0;
-  return clamp(baseChance * settings.multiplier, 0, 0.92);
+  return clamp((baseChance + settings.boost * 0.12 + timeDifficultyRamp().enemies) * settings.multiplier, 0, 0.98);
 }
 
-function pickHarderLane(previousLane, verticalBonus = 0) {
-  const lane = pickLane(previousLane);
-  if (verticalBonus <= 8 || Math.random() > clamp(verticalBonus / 96, 0, 0.9)) return lane;
+function enemySpawnCount(chance, freeSpace) {
+  if (Math.random() > chance) return 0;
+  const settings = enemyModeSettings();
+  const maxBySpace = Math.max(1, Math.floor(freeSpace / 78));
+  if (settings.multiplier <= 1) return 1;
 
-  const lanes = laneY();
-  const currentIndex = closestLaneIndex(lane);
-  const direction = Math.random() < 0.5 ? -1 : 1;
-  const extraSteps = verticalBonus > 40 && Math.random() < clamp(verticalBonus / 125, 0.45, 0.9) ? 2 : 1;
-  const nextIndex = clamp(currentIndex + direction * extraSteps, 0, lanes.length - 1);
-  return lanes[nextIndex];
+  let count = 1;
+  if (Math.random() < 0.7) count += 1;
+  if (Math.random() < 0.45) count += 1;
+  if (Math.random() < 0.24) count += 1;
+  return Math.min(count, maxBySpace, 5);
 }
 `;
 
