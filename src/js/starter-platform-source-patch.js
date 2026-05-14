@@ -17,6 +17,18 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
     'first.width = clamp(state.width * 0.74, 292, 348);',
     'first.width = clamp(state.width * 0.86, 330, 420);',
   ],
+  [
+    'return clamp((state.distance - 450) / 3400, 0, 1);',
+    'return clamp((state.distance - 450) / 3400, 0, 1) + timeDifficultyRamp().difficulty;',
+  ],
+  [
+    'state.speedBoost = powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0;',
+    'state.speedBoost = (powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0) + timeDifficultyRamp().speed;',
+  ],
+  [
+    'const chance = 0.075 + difficulty * 0.055;',
+    'const chance = 0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies;',
+  ],
 ];
 
 const TIME_DIFFICULTY_SOURCE = `
@@ -26,6 +38,7 @@ function timeDifficultyRamp(seconds = state.time || 0) {
   const curve = TIME_DIFFICULTY_CURVE;
   const earlySeconds = Math.min(seconds, curve.fastRampStartSeconds);
   const lateSeconds = Math.max(0, seconds - curve.fastRampStartSeconds);
+
   return {
     difficulty: clamp(
       earlySeconds * curve.earlyDifficultyPerSecond + lateSeconds * curve.lateDifficultyPerSecond,
@@ -77,9 +90,6 @@ window.HamsterRunPauseControls = {
 `;
 
 const nativeBlob = window.Blob;
-const nativeFunction = window.Function;
-const nativeEval = window.eval;
-const nativeStringReplace = String.prototype.replace;
 let restored = false;
 
 function patchGameSource(source) {
@@ -88,13 +98,7 @@ function patchGameSource(source) {
   const patchedSource = STARTER_PLATFORM_SOURCE_PATCHES.reduce(
     (nextSource, [from, to]) => nextSource.split(from).join(to),
     source,
-  )
-    .split('return clamp((state.distance - 450) / 3400, 0, 1);')
-    .join('return clamp((state.distance - 450) / 3400, 0, 1) + timeDifficultyRamp().difficulty;')
-    .split('state.speedBoost = powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0;')
-    .join('state.speedBoost = (powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0) + timeDifficultyRamp().speed;')
-    .split('const chance = 0.075 + difficulty * 0.055;')
-    .join('const chance = 0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies;');
+  );
 
   const needsPauseControls =
     !patchedSource.includes('window.HamsterRunPauseControls') &&
@@ -104,7 +108,9 @@ function patchGameSource(source) {
     !patchedSource.includes('function timeDifficultyRamp') &&
     patchedSource.includes('function currentDifficulty');
 
-  return `${needsTimeDifficulty ? TIME_DIFFICULTY_SOURCE : ''}${patchedSource}${needsPauseControls ? `\n${PAUSE_CONTROLS_SOURCE}` : ''}`;
+  return `${needsTimeDifficulty ? TIME_DIFFICULTY_SOURCE : ''}${patchedSource}${
+    needsPauseControls ? `\n${PAUSE_CONTROLS_SOURCE}` : ''
+  }`;
 }
 
 function shouldPatchBlob(parts) {
@@ -121,39 +127,12 @@ function installBlobPatch() {
   window.Blob.prototype = nativeBlob.prototype;
 }
 
-function installFunctionPatch() {
-  window.Function = function PatchedFunction(...args) {
-    const nextArgs = args.map(patchGameSource);
-    return nativeFunction.apply(this, nextArgs);
-  };
-  window.Function.prototype = nativeFunction.prototype;
-}
-
-function installEvalPatch() {
-  window.eval = function patchedEval(source) {
-    return nativeEval.call(this, patchGameSource(source));
-  };
-}
-
-function installReplacePatch() {
-  String.prototype.replace = function patchedReplace(...args) {
-    const replaced = nativeStringReplace.apply(this, args);
-    return patchGameSource(replaced);
-  };
-}
-
 function restoreSourcePatches() {
   if (restored) return;
 
   restored = true;
   window.Blob = nativeBlob;
-  window.Function = nativeFunction;
-  window.eval = nativeEval;
-  String.prototype.replace = nativeStringReplace;
 }
 
 installBlobPatch();
-installFunctionPatch();
-installEvalPatch();
-installReplacePatch();
-window.setTimeout(restoreSourcePatches, 2500);
+window.setTimeout(restoreSourcePatches, 1200);
