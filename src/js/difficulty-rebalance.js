@@ -26,7 +26,6 @@ const MODE_OVERRIDES = {
   },
 };
 
-let syncQueued = false;
 let retryTimer = 0;
 
 function modeApi() {
@@ -48,17 +47,7 @@ function applyOverrides() {
   }
 
   api.refreshRecords?.();
-  window.dispatchEvent(new CustomEvent('hamster-run-mode-change', { detail: api.getSelectedMode?.() }));
   return true;
-}
-
-function queueApplyOverrides() {
-  if (syncQueued) return;
-  syncQueued = true;
-  window.requestAnimationFrame(() => {
-    syncQueued = false;
-    applyOverrides();
-  });
 }
 
 function retryUntilReady(attempt = 0) {
@@ -68,4 +57,3 @@ function retryUntilReady(attempt = 0) {
 }
 
 retryUntilReady();
-window.addEventListener('hamster-run-mode-change', queueApplyOverrides, { passive: true });
