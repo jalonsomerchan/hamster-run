@@ -15,8 +15,8 @@ const difficulties = [
   { id: 'tutorial', name: 'Tutorial', detail: 'Aprender sin presión', tag: 'Guía', difficultyBoost: -0.22, speedBoost: -16, enemyBoost: -0.18 },
   { id: 'basic', name: 'Básico', detail: 'Inicio cómodo', tag: 'Fácil', difficultyBoost: -0.1, speedBoost: -8, enemyBoost: -0.08 },
   { id: 'medium', name: 'Medio', detail: 'Ritmo normal', tag: 'Normal', difficultyBoost: 0, speedBoost: 0, enemyBoost: 0 },
-  { id: 'hard', name: 'Difícil', detail: 'Más tensión', tag: 'Duro', difficultyBoost: 0.18, speedBoost: 18, enemyBoost: 0.08 },
-  { id: 'veryHard', name: 'Muy difícil', detail: 'Para récords', tag: 'Pro', difficultyBoost: 0.34, speedBoost: 34, enemyBoost: 0.16 },
+  { id: 'hard', name: 'Difícil', detail: 'Exigente desde el inicio', tag: 'Duro', difficultyBoost: 0.42, speedBoost: 58, enemyBoost: 0.2 },
+  { id: 'veryHard', name: 'Muy difícil', detail: 'Saltos ajustados', tag: 'Pro', difficultyBoost: 0.74, speedBoost: 96, enemyBoost: 0.34 },
 ];
 
 let selectedModeId = null;
