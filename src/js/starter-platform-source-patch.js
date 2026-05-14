@@ -100,9 +100,10 @@ function highDifficultyPressure() {
 
 function enemyModeSettings() {
   const mode = selectedMode();
+  const modeId = mode?.id || 'endless';
   return {
-    disabled: Boolean(mode?.disableEnemies),
-    multiplier: Math.max(0, mode?.enemySpawnMultiplier || 1),
+    disabled: modeId === 'peaceful',
+    multiplier: modeId === 'horde' ? Math.max(1, mode?.enemySpawnMultiplier || 1) : 1,
   };
 }
 
