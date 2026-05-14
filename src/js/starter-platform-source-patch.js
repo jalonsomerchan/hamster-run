@@ -48,9 +48,6 @@ window.HamsterRunPauseControls = {
 `;
 
 const nativeBlob = window.Blob;
-const nativeFunction = window.Function;
-const nativeEval = window.eval;
-const nativeStringReplace = String.prototype.replace;
 let restored = false;
 
 function patchGameSource(source) {
@@ -86,39 +83,12 @@ function installBlobPatch() {
   window.Blob.prototype = nativeBlob.prototype;
 }
 
-function installFunctionPatch() {
-  window.Function = function PatchedFunction(...args) {
-    const nextArgs = args.map(patchGameSource);
-    return nativeFunction.apply(this, nextArgs);
-  };
-  window.Function.prototype = nativeFunction.prototype;
-}
-
-function installEvalPatch() {
-  window.eval = function patchedEval(source) {
-    return nativeEval.call(this, patchGameSource(source));
-  };
-}
-
-function installReplacePatch() {
-  String.prototype.replace = function patchedReplace(...args) {
-    const replaced = nativeStringReplace.apply(this, args);
-    return patchGameSource(replaced);
-  };
-}
-
 function restoreSourcePatches() {
   if (restored) return;
 
   restored = true;
   window.Blob = nativeBlob;
-  window.Function = nativeFunction;
-  window.eval = nativeEval;
-  String.prototype.replace = nativeStringReplace;
 }
 
 installBlobPatch();
-installFunctionPatch();
-installEvalPatch();
-installReplacePatch();
-window.setTimeout(restoreSourcePatches, 2500);
+window.setTimeout(restoreSourcePatches, 1200);
