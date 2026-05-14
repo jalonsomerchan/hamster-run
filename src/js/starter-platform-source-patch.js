@@ -1,3 +1,5 @@
+import { TIME_DIFFICULTY_CURVE } from './config/difficultyCurve.js';
+
 const STARTER_PLATFORM_SOURCE_PATCHES = [
   [
     "makePlatform(-35, floor, Math.max(340, state.width * 0.82), state.level.platformVariant),",
@@ -15,7 +17,47 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
     'first.width = clamp(state.width * 0.74, 292, 348);',
     'first.width = clamp(state.width * 0.86, 330, 420);',
   ],
+  [
+    'return clamp((state.distance - 450) / 3400, 0, 1);',
+    'return clamp((state.distance - 450) / 3400, 0, 1) + timeDifficultyRamp().difficulty;',
+  ],
+  [
+    'state.speedBoost = powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0;',
+    'state.speedBoost = (powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0) + timeDifficultyRamp().speed;',
+  ],
+  [
+    'const chance = 0.075 + difficulty * 0.055;',
+    'const chance = 0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies;',
+  ],
 ];
+
+const TIME_DIFFICULTY_SOURCE = `
+const TIME_DIFFICULTY_CURVE = ${JSON.stringify(TIME_DIFFICULTY_CURVE)};
+
+function timeDifficultyRamp(seconds = state.time || 0) {
+  const curve = TIME_DIFFICULTY_CURVE;
+  const earlySeconds = Math.min(seconds, curve.fastRampStartSeconds);
+  const lateSeconds = Math.max(0, seconds - curve.fastRampStartSeconds);
+
+  return {
+    difficulty: clamp(
+      earlySeconds * curve.earlyDifficultyPerSecond + lateSeconds * curve.lateDifficultyPerSecond,
+      0,
+      curve.maxDifficultyBonus,
+    ),
+    speed: clamp(
+      earlySeconds * curve.earlySpeedPerSecond + lateSeconds * curve.lateSpeedPerSecond,
+      0,
+      curve.maxSpeedBonus,
+    ),
+    enemies: clamp(
+      earlySeconds * curve.earlyEnemyPerSecond + lateSeconds * curve.lateEnemyPerSecond,
+      0,
+      curve.maxEnemyBonus,
+    ),
+  };
+}
+`;
 
 const PAUSE_CONTROLS_SOURCE = `
 window.HamsterRunPauseControls = {
@@ -58,15 +100,17 @@ function patchGameSource(source) {
     source,
   );
 
-  if (
-    patchedSource.includes('window.HamsterRunPauseControls') ||
-    !patchedSource.includes('function syncGameChrome') ||
-    !patchedSource.includes('function resetGame')
-  ) {
-    return patchedSource;
-  }
+  const needsPauseControls =
+    !patchedSource.includes('window.HamsterRunPauseControls') &&
+    patchedSource.includes('function syncGameChrome') &&
+    patchedSource.includes('function resetGame');
+  const needsTimeDifficulty =
+    !patchedSource.includes('function timeDifficultyRamp') &&
+    patchedSource.includes('function currentDifficulty');
 
-  return `${patchedSource}\n${PAUSE_CONTROLS_SOURCE}`;
+  return `${needsTimeDifficulty ? TIME_DIFFICULTY_SOURCE : ''}${patchedSource}${
+    needsPauseControls ? `\n${PAUSE_CONTROLS_SOURCE}` : ''
+  }`;
 }
 
 function shouldPatchBlob(parts) {
