@@ -78,10 +78,7 @@ function patchSource(source) {
     .replace(/function\s+respawnPlayerAfterLifeLoss\s*\(/g, 'function originalRespawnPlayerAfterLifeLoss(')
     .replace(/function\s+jump\s*\(/g, 'function originalJump(')
     .replace(/function\s+endGame\s*\(/g, 'function originalEndGame(')
-    .replace(/state\.lives = 3;/g, 'state.lives = Math.min(3, maxLivesForCurrentLevel());')
-    .replace(/state\.lives \+= 1;/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')
-    .replace(/state\.lives = state\.lives \+ 1;/g, 'state.lives = Math.min(maxLivesForCurrentLevel(), state.lives + 1);')
-    .replace(/state\.lives < 5/g, 'state.lives < maxLivesForCurrentLevel()');
+    .replace(/return clamp\(\(state\.distance - 650\) \/ 5200, 0, 1\);/g, 'return clamp((state.distance - 450) / 3400, 0, 1);');
 
   if (!/function\s+itemBox\s*\(/.test(patched)) {
     patched += `\nfunction itemBox(item) {\n  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;\n  return { x: item.x, y: item.y, width: item.width || size, height: item.height || size };\n}\n`;
@@ -102,14 +99,22 @@ let currentGameMode = window.HamsterRunModes?.getSelectedMode?.() || { id: 'endl
 let modeTimeLeft = null;
 let seededRandom = null;
 
+const powerUps = [];
+const powerUpEffects = { jumps: 0, speed: 0, invincible: 0 };
+const POWER_UP_TYPES = {
+  jumps: { id: 'jumps', label: '+saltos', color: '#39a8ff', glow: 'rgba(57, 168, 255, 0.62)', duration: 9, score: 80 },
+  speed: { id: 'speed', label: 'turbo', color: '#ff4a4a', glow: 'rgba(255, 74, 74, 0.62)', duration: 7, boost: 132, score: 90 },
+  invincible: { id: 'invincible', label: 'invencible', color: '#ffd84a', glow: 'rgba(255, 216, 74, 0.72)', duration: 8, score: 120 },
+};
+const TUTORIAL_POWER_UPS = {
+  8: { gap: 94, width: 340, lane: 2, prompt: 'Azul: más saltos', powerUp: 'jumps' },
+  9: { gap: 108, width: 340, lane: 1, prompt: 'Rojo: corres más', powerUp: 'speed', peanuts: 1 },
+  10: { gap: 112, width: 340, lane: 2, prompt: 'Amarillo: invencible', powerUp: 'invincible', enemy: 'ground' },
+  11: { gap: 102, width: 340, lane: 1, prompt: 'Mira el contador arriba', peanuts: 2 },
+};
+
 function selectedMode() {
   return currentGameMode || window.HamsterRunModes?.getSelectedMode?.() || { id: 'endless', name: 'Endless', timeLimit: null, seed: null };
-}
-
-function maxLivesForCurrentLevel() {
-  const configuredMax = Number(state.level?.maxLives ?? state.level?.max_lives ?? 5);
-  if (!Number.isFinite(configuredMax) || configuredMax < 1) return 5;
-  return Math.floor(configuredMax);
 }
 
 function readRecords() {
@@ -145,10 +150,60 @@ function resetGame() {
   currentGameMode = window.HamsterRunModes?.getSelectedMode?.() || selectedMode();
   modeTimeLeft = currentGameMode.timeLimit ?? null;
   seededRandom = currentGameMode.seed ? makeSeededRandom(String(currentGameMode.seed) + ':' + state.selectedLevel) : null;
+  powerUps.length = 0;
+  clearPowerUpEffects();
 
   withModeRandom(() => originalResetGame());
-  state.lives = Math.min(state.lives, maxLivesForCurrentLevel());
+  improveStarterPlatforms();
   updateModeHud();
+}
+
+function improveStarterPlatforms() {
+  if (state.level?.tutorial || platforms.length < 2) return;
+
+  const floor = state.height * 0.7;
+  const first = platforms[0];
+  const second = platforms[1];
+  const oldSecondEnd = second.x + second.width;
+
+  first.x = -34;
+  first.y = floor;
+  first.baseY = floor;
+  first.width = clamp(state.width * 0.74, 292, 348);
+  first.lane = closestLaneIndex(first.y);
+  first.starter = true;
+
+  const transitionGap = clamp(state.width * 0.16, 62, 92);
+  const transitionWidth = clamp(state.width * 0.46, 176, 238);
+  const transitionLift = clamp(state.height * 0.055, 34, 54);
+
+  second.x = first.x + first.width + transitionGap;
+  second.y = floor - transitionLift;
+  second.baseY = second.y;
+  second.width = transitionWidth;
+  second.lane = closestLaneIndex(second.y);
+  second.starter = true;
+
+  const delta = second.x + second.width - oldSecondEnd;
+  if (Math.abs(delta) < 0.5) return;
+
+  for (let index = 2; index < platforms.length; index += 1) {
+    platforms[index].x += delta;
+  }
+
+  shiftStarterSpawnedItems(peanuts, delta);
+  shiftStarterSpawnedItems(hearts, delta);
+  shiftStarterSpawnedItems(powerUps, delta);
+  shiftStarterSpawnedItems(enemies, delta);
+  shiftStarterSpawnedItems(decor, delta);
+}
+
+function shiftStarterSpawnedItems(items, delta) {
+  for (const item of items) {
+    if ((item.platformId ?? 0) >= 2) item.x += delta;
+    if ((item.platformLeft ?? 0) > 0) item.platformLeft += delta;
+    if ((item.platformRight ?? 0) > 0) item.platformRight += delta;
+  }
 }
 
 function currentDifficulty() {
@@ -186,7 +241,17 @@ function jump() {
   const jumpsBefore = player.jumps;
   const modeBefore = state.mode;
   originalJump();
+  if (modeBefore === 'running' && player.jumps === jumpsBefore && canUseExtraPowerJump()) {
+    player.vy = -state.level.jump;
+    player.jumps += 1;
+    player.grounded = false;
+  }
   if (modeBefore === 'running' && player.jumps > jumpsBefore) playSound(jumpsBefore > 0 ? 'doubleJump' : 'jump');
+}
+
+function canUseExtraPowerJump() {
+  const maxJumps = powerUpEffects.jumps > 0 ? 4 : 2;
+  return state.mode === 'running' && !player.grounded && player.jumps < maxJumps;
 }
 
 function endGame() {
@@ -324,6 +389,211 @@ function respawnPlayerAfterLifeLoss() {
   bursts.push({ x: player.x + player.width / 2, y: player.y + player.height / 2, ttl: 0.95, life: 0.95, radius: 18, color: 'rgba(255, 91, 91, 0.54)' });
 }
 
+const originalTutorialPlatformSpecWithPowerUps = typeof tutorialPlatformSpec === 'function' ? tutorialPlatformSpec : null;
+if (originalTutorialPlatformSpecWithPowerUps) {
+  tutorialPlatformSpec = function tutorialPlatformSpecWithPowerUps(index) {
+    return TUTORIAL_POWER_UPS[index] || originalTutorialPlatformSpecWithPowerUps(index);
+  };
+}
+
+const originalSpawnTutorialItemsWithPowerUps = typeof spawnTutorialItems === 'function' ? spawnTutorialItems : null;
+if (originalSpawnTutorialItemsWithPowerUps) {
+  spawnTutorialItems = function spawnTutorialItemsWithPowerUps(platform, spec) {
+    originalSpawnTutorialItemsWithPowerUps(platform, spec);
+    if (spec?.powerUp) spawnPowerUp(platform, spec.powerUp, 0.56);
+  };
+}
+
+const originalSpawnPlatformWithPowerUps = typeof spawnPlatform === 'function' ? spawnPlatform : null;
+if (originalSpawnPlatformWithPowerUps) {
+  spawnPlatform = function spawnPlatformWithPowerUps(previous) {
+    originalSpawnPlatformWithPowerUps(previous);
+    const platform = platforms[platforms.length - 1];
+    maybeSpawnPowerUp(platform);
+  };
+}
+
+function maybeSpawnPowerUp(platform) {
+  if (!platform || state.level?.tutorial || platform.index <= START_SAFE_PLATFORMS + 1 || platform.width < 210) return;
+  const difficulty = currentDifficulty();
+  const chance = 0.075 + difficulty * 0.055;
+  if (Math.random() > chance) return;
+  const types = ['jumps', 'speed', 'invincible'];
+  spawnPowerUp(platform, types[Math.floor(random(0, types.length))], random(0.34, 0.72));
+}
+
+function spawnPowerUp(platform, type, ratio = 0.5) {
+  const def = POWER_UP_TYPES[type];
+  if (!platform || !def) return;
+  const size = 34;
+  const x = clamp(platform.x + platform.width * ratio, platform.x + 46, platform.x + platform.width - 46);
+  const yOffset = 92;
+  powerUps.push({ type, x, y: platform.y - yOffset, size, taken: false, bob: random(0, Math.PI * 2), platformId: platform.id, yOffset, pulse: 0 });
+}
+
+function updatePowerUps(dt) {
+  if (state.mode !== 'running') return;
+  for (const key of Object.keys(powerUpEffects)) {
+    powerUpEffects[key] = Math.max(0, powerUpEffects[key] - dt);
+  }
+  state.speedBoost = powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0;
+  if (powerUpEffects.invincible > 0) state.invincible = Math.max(state.invincible, Math.min(0.35, powerUpEffects.invincible + 0.05));
+
+  const scrollSpeed = ((state.level?.speed || 0) + (state.speedBoost || 0)) * dt;
+  const playerHitbox = playerBox(8);
+  for (let index = powerUps.length - 1; index >= 0; index -= 1) {
+    const powerUp = powerUps[index];
+    const platform = platforms.find((item) => item.id === powerUp.platformId);
+    if (platform) {
+      powerUp.y = platform.y - powerUp.yOffset;
+    } else {
+      powerUp.x -= scrollSpeed;
+    }
+    powerUp.bob += dt * 4.6;
+    powerUp.pulse += dt * 5.2;
+    if (!powerUp.taken && boxesOverlap(playerHitbox, itemBox(powerUp))) collectPowerUp(powerUp);
+    if (powerUp.taken || powerUp.x + powerUp.size < -80) powerUps.splice(index, 1);
+  }
+}
+
+function boxesOverlap(a, b) {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+}
+
+function collectPowerUp(powerUp) {
+  const def = POWER_UP_TYPES[powerUp.type];
+  powerUp.taken = true;
+  powerUpEffects[powerUp.type] = Math.max(powerUpEffects[powerUp.type], def.duration);
+  state.score += def.score;
+  if (powerUp.type === 'invincible') state.invincible = Math.max(state.invincible, def.duration);
+  if (powerUp.type === 'speed') state.speedBoost = def.boost;
+  bursts.push({ x: powerUp.x + powerUp.size / 2, y: powerUp.y + powerUp.size / 2, ttl: 0.52, life: 0.52, radius: 32, color: def.glow });
+  playSound(powerUp.type === 'speed' ? 'peanut' : 'heart');
+  updateHud();
+}
+
+function clearPowerUpEffects() {
+  powerUpEffects.jumps = 0;
+  powerUpEffects.speed = 0;
+  powerUpEffects.invincible = 0;
+  state.speedBoost = 0;
+}
+
+function activePowerUpEntries() {
+  return Object.entries(powerUpEffects)
+    .filter(([, value]) => value > 0)
+    .sort((a, b) => b[1] - a[1]);
+}
+
+function drawPowerUps() {
+  if (!ctx || !powerUps.length) return;
+  for (const powerUp of powerUps) drawPowerUp(powerUp);
+}
+
+function drawPowerUp(powerUp) {
+  const def = POWER_UP_TYPES[powerUp.type];
+  const radius = powerUp.size / 2;
+  const cx = powerUp.x + radius;
+  const cy = powerUp.y + radius + Math.sin(powerUp.bob) * 5;
+  const pulse = 1 + Math.sin(powerUp.pulse) * 0.08;
+  ctx.save();
+  ctx.globalAlpha = 0.92;
+  ctx.shadowColor = def.glow;
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * pulse, 0, Math.PI * 2);
+  ctx.fillStyle = def.color;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.86)';
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+  ctx.beginPath();
+  ctx.arc(cx - radius * 0.34, cy - radius * 0.36, radius * 0.28, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawPowerUpTimerOverlay() {
+  if (!ctx || state.mode !== 'running') return;
+  const entries = activePowerUpEntries();
+  if (!entries.length) return;
+  const topEntry = entries[0];
+  const def = POWER_UP_TYPES[topEntry[0]];
+  const seconds = Math.ceil(topEntry[1]);
+  const text = def.label + ' ' + seconds + 's';
+  const x = clamp(player.x + player.width / 2, 88, state.width - 88);
+  const y = Math.max(56, player.y - 34);
+  ctx.save();
+  ctx.font = '800 16px system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const width = Math.min(190, ctx.measureText(text).width + 34);
+  ctx.fillStyle = 'rgba(20, 24, 36, 0.74)';
+  powerUpRoundRect(ctx, x - width / 2, y - 18, width, 36, 18);
+  ctx.fill();
+  ctx.strokeStyle = def.color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
+function drawInvincibleGlow() {
+  if (!ctx || powerUpEffects.invincible <= 0 || state.mode !== 'running') return;
+  const cx = player.x + player.width / 2;
+  const cy = player.y + player.height / 2;
+  const radius = Math.max(player.width, player.height) * (0.86 + Math.sin(state.time * 14) * 0.08);
+  ctx.save();
+  ctx.globalAlpha = 0.68;
+  ctx.shadowColor = POWER_UP_TYPES.invincible.glow;
+  ctx.shadowBlur = 22;
+  ctx.strokeStyle = '#ffe972';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 0.25;
+  ctx.fillStyle = '#fff3a3';
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius * 0.88, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function powerUpRoundRect(targetCtx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  targetCtx.beginPath();
+  targetCtx.moveTo(x + r, y);
+  targetCtx.arcTo(x + width, y, x + width, y + height, r);
+  targetCtx.arcTo(x + width, y + height, x, y + height, r);
+  targetCtx.arcTo(x, y + height, x, y, r);
+  targetCtx.arcTo(x, y, x + width, y, r);
+  targetCtx.closePath();
+}
+
+function drawPowerUpLayer() {
+  drawInvincibleGlow();
+  drawPowerUps();
+  drawPowerUpTimerOverlay();
+}
+
+if (typeof draw === 'function') {
+  const originalDraw = draw;
+  draw = function drawWithPowerUps() {
+    originalDraw();
+    drawPowerUpLayer();
+  };
+} else if (typeof render === 'function') {
+  const originalRender = render;
+  render = function renderWithPowerUps() {
+    originalRender();
+    drawPowerUpLayer();
+  };
+}
+
 const originalUpdate = update;
 update = function updateWithPatches(dt) {
   if (lifeRespawnDelay > 0) {
@@ -331,6 +601,7 @@ update = function updateWithPatches(dt) {
     state.time += dt;
     state.invincible = Math.max(state.invincible, 1.45);
     state.shake = Math.max(0, state.shake - dt * 18);
+    updatePowerUps(dt);
     if (lifeRespawnDelay === 0) respawnPlayerAfterLifeLoss();
     cleanupLongRunEntities();
     updatePerfProbe(dt);
@@ -340,8 +611,8 @@ update = function updateWithPatches(dt) {
   const peanutsBefore = state.peanuts;
   const livesBefore = state.lives;
   withModeRandom(() => originalUpdate(dt));
-  state.lives = Math.min(state.lives, maxLivesForCurrentLevel());
   updateModeTimer(dt);
+  updatePowerUps(dt);
   if (state.peanuts > peanutsBefore) playSound('peanut');
   if (state.lives > livesBefore) playSound('heart');
   cleanupLongRunEntities();
@@ -373,6 +644,7 @@ function cleanupLongRunEntities() {
   pruneEntityList(platforms, (platform) => platform.x + platform.width > -180, 82);
   pruneEntityList(peanuts, (peanut) => peanut.x > -160 && !peanut.taken, 140);
   pruneEntityList(hearts, (heart) => heart.x > -160 && !heart.taken, 24);
+  pruneEntityList(powerUps, (powerUp) => powerUp.x > -160 && !powerUp.taken, 34);
   pruneEntityList(enemies, (enemy) => enemy.x > -180 && !enemy.defeated, 48);
   pruneEntityList(decor, (item) => item.x > -180, 70);
   pruneEntityList(bursts, (burst) => (burst.ttl ?? 0) > 0, 46);
@@ -397,7 +669,7 @@ function updatePerfProbe(dt) {
     const fps = Math.round(perfProbe.frames / perfProbe.acc);
     perfProbe.frames = 0;
     perfProbe.acc = 0;
-    if (fps < 45) console.info('[Hamster Run] FPS bajos', { fps, platforms: platforms.length, peanuts: peanuts.length, hearts: hearts.length, enemies: enemies.length, decor: decor.length, bursts: bursts.length });
+    if (fps < 45) console.info('[Hamster Run] FPS bajos', { fps, platforms: platforms.length, peanuts: peanuts.length, hearts: hearts.length, powerUps: powerUps.length, enemies: enemies.length, decor: decor.length, bursts: bursts.length });
   }
 }
 
@@ -413,7 +685,7 @@ function setupMobileSafeControls() {
 
 function renderLifeHearts() {
   if (!livesEl) return;
-  const visibleLives = Math.max(0, Math.min(maxLivesForCurrentLevel(), Math.floor(state.lives)));
+  const visibleLives = Math.max(0, Math.floor(state.lives));
   livesEl.textContent = '♥'.repeat(visibleLives);
   livesEl.style.backgroundImage = 'none';
   livesEl.style.width = 'auto';

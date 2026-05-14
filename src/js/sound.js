@@ -76,6 +76,10 @@ function play(name) {
     beep(760, 0.055, 'sine', 0.34);
     beep(1140, 0.055, 'sine', 0.22, null, 0.045);
   }
+  if (name === 'heart') {
+    beep(520, 0.07, 'triangle', 0.28, 760);
+    beep(980, 0.08, 'sine', 0.22, null, 0.055);
+  }
   if (name === 'damage') beep(190, 0.18, 'sawtooth', 0.48, 92);
   if (name === 'stomp') {
     beep(260, 0.09, 'square', 0.34, 520);

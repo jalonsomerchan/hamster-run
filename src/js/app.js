@@ -3,6 +3,9 @@ import '../css/main.css';
 import hamsterSheet from '../assets/sprites/hamster/sheet-transparent.png';
 import blueHamsterSheet from '../assets/sprites/characters/blue-hamster/sheet-transparent.png';
 import tasmanianSheet from '../assets/sprites/characters/tasmanian/sheet-transparent.png';
+import hamsterAngelSheet from '../assets/sprites/death/hamster-angel/sheet-transparent.png';
+import blueHamsterAngelSheet from '../assets/sprites/death/blue-hamster-angel/sheet-transparent.png';
+import tasmanianAngelSheet from '../assets/sprites/death/tasmanian-angel/sheet-transparent.png';
 import peanutSheet from '../assets/sprites/peanut/sheet-transparent.png';
 import heartSheet from '../assets/sprites/heart/sheet-transparent.png';
 import enemySheet from '../assets/sprites/enemy/sheet-transparent.png';
@@ -57,9 +60,31 @@ const RECORD_KEY = 'hamster-run-records-v1';
 
 const levels = [
   {
+    id: 'tutorial',
+    name: 'Tutorial',
+    detail: 'Aprende',
+    tag: 'Inicio',
+    speed: 188,
+    gravity: 1740,
+    jump: 710,
+    enemyChance: 0,
+    startGap: [58, 90],
+    gap: [76, 118],
+    startWidth: [280, 380],
+    width: [230, 360],
+    startVertical: 18,
+    vertical: 42,
+    lanes: [0.5, 0.61, 0.72],
+    movingChance: 0,
+    platformVariant: 0,
+    backgroundSet: 'meadow',
+    palette: ['#91d8ea', '#bcebc7', '#f5cb6b'],
+    tutorial: true,
+  },
+  {
     id: 'meadow',
     name: 'Pradera',
-    detail: 'Saltos amplios y ritmo amable',
+    detail: 'Ritmo suave',
     tag: 'Fácil',
     speed: 210,
     gravity: 1780,
@@ -80,7 +105,7 @@ const levels = [
   {
     id: 'clover',
     name: 'Tréboles',
-    detail: 'Plataformas con hojas y saltos suaves',
+    detail: 'Saltos cómodos',
     tag: 'Fácil',
     speed: 218,
     gravity: 1810,
@@ -101,7 +126,7 @@ const levels = [
   {
     id: 'bridge',
     name: 'Puentes',
-    detail: 'Maderos cortos con más atención',
+    detail: 'Más precisión',
     tag: 'Medio',
     speed: 226,
     gravity: 1850,
@@ -122,7 +147,7 @@ const levels = [
   {
     id: 'cookie',
     name: 'Galleta',
-    detail: 'Suelo blandito y recorrido tranquilo',
+    detail: 'Ruta estable',
     tag: 'Medio',
     speed: 232,
     gravity: 1880,
@@ -143,7 +168,7 @@ const levels = [
   {
     id: 'straw',
     name: 'Paja',
-    detail: 'Granero con enemigos inquietos',
+    detail: 'Más enemigos',
     tag: 'Medio',
     speed: 240,
     gravity: 1930,
@@ -164,7 +189,7 @@ const levels = [
   {
     id: 'moon',
     name: 'Setas',
-    detail: 'Noche brillante con vuelos sorpresa',
+    detail: 'Saltos exigentes',
     tag: 'Difícil',
     speed: 250,
     gravity: 1980,
@@ -238,6 +263,9 @@ const sprites = {
   hamster: { image: makeImage(hamsterSheet), cols: 4, rows: 1, cell: 192 },
   blueHamster: { image: makeImage(blueHamsterSheet), cols: 4, rows: 1, cell: 192 },
   tasmanian: { image: makeImage(tasmanianSheet), cols: 4, rows: 1, cell: 192 },
+  hamsterAngel: { image: makeImage(hamsterAngelSheet), cols: 4, rows: 1, cell: 192 },
+  blueHamsterAngel: { image: makeImage(blueHamsterAngelSheet), cols: 4, rows: 1, cell: 192 },
+  tasmanianAngel: { image: makeImage(tasmanianAngelSheet), cols: 4, rows: 1, cell: 192 },
   peanut: { image: makeImage(peanutSheet), cols: 2, rows: 2, cell: 128 },
   heart: { image: makeImage(heartSheet), cols: 2, rows: 2, cell: 128 },
   enemy: { image: makeImage(enemySheet), cols: 4, rows: 1, cell: 168 },
@@ -251,9 +279,9 @@ const sprites = {
 };
 
 const characters = [
-  { id: 'hamster', name: 'Hamster rojo', sprite: sprites.hamster, width: 62, height: 54 },
-  { id: 'blueHamster', name: 'Hamster azul', sprite: sprites.blueHamster, width: 62, height: 54 },
-  { id: 'tasmanian', name: 'Demonio', sprite: sprites.tasmanian, width: 66, height: 56 },
+  { id: 'hamster', name: 'Rojo', sprite: sprites.hamster, deathSprite: sprites.hamsterAngel, width: 62, height: 54 },
+  { id: 'blueHamster', name: 'Azul', sprite: sprites.blueHamster, deathSprite: sprites.blueHamsterAngel, width: 62, height: 54 },
+  { id: 'tasmanian', name: 'Turbo', sprite: sprites.tasmanian, deathSprite: sprites.tasmanianAngel, width: 66, height: 56 },
 ];
 
 const state = {
@@ -554,20 +582,29 @@ function createBackgroundProps() {
 function spawnPlatform(previous = platforms[platforms.length - 1]) {
   const level = state.level;
   const difficulty = currentDifficulty();
+  const tutorialSpec = level.tutorial ? tutorialPlatformSpec(state.platformCount) : null;
   const gapRange = lerpRange(level.startGap, level.gap, difficulty);
   const widthRange = lerpRange(level.startWidth, level.width, difficulty);
-  const gap = random(gapRange[0], Math.min(gapRange[1], state.width * 0.46));
+  const gap = tutorialSpec?.gap ?? random(gapRange[0], Math.min(gapRange[1], state.width * 0.46));
   const minWidth = Math.max(widthRange[0], LANDING_ZONE * 2 + player.width);
   const maxWidth = Math.min(Math.max(widthRange[1], minWidth + 28), state.width * 0.94);
-  const width = random(minWidth, maxWidth);
-  const y = choosePlatformY(previous, gap, difficulty);
+  const width = tutorialSpec?.width ?? random(minWidth, maxWidth);
+  const y = tutorialSpec?.lane !== undefined ? laneY(tutorialSpec.lane) : choosePlatformY(previous, gap, difficulty);
   const variant = level.platformVariant;
   const platform = makePlatform((previous ? previous.x + previous.width : 0) + gap, y, width, variant);
   platform.index = state.platformCount;
   platform.lane = closestLaneIndex(y);
-  maybeMakePlatformMoving(platform, difficulty);
+  platform.tutorialPrompt = tutorialSpec?.prompt;
+  if (!level.tutorial) {
+    maybeMakePlatformMoving(platform, difficulty);
+  }
   state.platformCount += 1;
   platforms.push(platform);
+
+  if (level.tutorial && tutorialSpec) {
+    spawnTutorialItems(platform, tutorialSpec);
+    return;
+  }
 
   const peanutCount = Math.random() > 0.22 ? Math.floor(random(1, 4)) : 0;
   const peanutStart = platform.x + Math.max(34, LANDING_ZONE * 0.55);
@@ -616,6 +653,81 @@ function spawnPlatform(previous = platforms[platforms.length - 1]) {
       yOffset: 25,
     });
   }
+}
+
+function tutorialPlatformSpec(index) {
+  const scripted = {
+    2: { gap: 64, width: 330, lane: 2, prompt: 'Toca para saltar', peanuts: 2 },
+    3: { gap: 132, width: 300, lane: 2, prompt: 'Salta huecos', peanuts: 2 },
+    4: { gap: 154, width: 260, lane: 1, prompt: 'Doble salto', heart: true },
+    5: { gap: 100, width: 330, lane: 2, prompt: 'Evita enemigos', enemy: 'ground' },
+    6: { gap: 116, width: 330, lane: 2, prompt: 'Písalo desde arriba', enemy: 'chestnut', peanuts: 1 },
+    7: { gap: 92, width: 340, lane: 1, prompt: 'Sigue corriendo', heart: true, peanuts: 2 },
+  };
+
+  if (scripted[index]) {
+    return scripted[index];
+  }
+
+  return {
+    gap: random(88, 124),
+    width: random(250, 350),
+    lane: Math.floor(random(1, 3)),
+    peanuts: Math.random() > 0.48 ? 2 : 0,
+  };
+}
+
+function spawnTutorialItems(platform, spec) {
+  for (let index = 0; index < (spec.peanuts || 0); index += 1) {
+    const yOffset = 78;
+    peanuts.push({
+      x: platform.x + 72 + index * 44,
+      y: platform.y - yOffset,
+      size: 28,
+      taken: false,
+      bob: random(0, Math.PI * 2),
+      platformId: platform.id,
+      yOffset,
+    });
+  }
+
+  if (spec.heart) {
+    const yOffset = 112;
+    hearts.push({
+      x: platform.x + platform.width * 0.55,
+      y: platform.y - yOffset,
+      size: 32,
+      taken: false,
+      bob: random(0, Math.PI * 2),
+      platformId: platform.id,
+      yOffset,
+    });
+  }
+
+  if (spec.enemy) {
+    addTutorialEnemy(platform, spec.enemy);
+  }
+}
+
+function addTutorialEnemy(platform, kind) {
+  const width = kind === 'chestnut' ? 50 : 48;
+  const height = kind === 'chestnut' ? 39 : 37;
+  const yOffset = kind === 'chestnut' ? 42 : 40;
+
+  enemies.push({
+    kind,
+    x: platform.x + platform.width * 0.56,
+    y: platform.y - yOffset,
+    width,
+    height,
+    platformLeft: platform.x + LANDING_ZONE,
+    platformRight: platform.x + platform.width - LANDING_ZONE - width,
+    platformId: platform.id,
+    yOffset,
+    patrolSpeed: 12,
+    direction: -1,
+    phase: random(0, Math.PI * 2),
+  });
 }
 
 function spawnEnemy(platform, enemyX, difficulty) {
@@ -736,7 +848,7 @@ function syncGameChrome() {
 async function shareGame() {
   const shareData = {
     title: 'Hamster Run',
-    text: 'Juega a Hamster Run y atrapa cacahuetes sin caerte.',
+    text: 'Corre en Hamster Run y supera tu marca.',
     url: window.location.href,
   };
   if (navigator.share) {
@@ -828,6 +940,14 @@ function update(dt) {
       heart.taken = true;
       state.lives = Math.min(6, state.lives + 1);
       state.score += 110;
+      bursts.push({
+        x: heart.x + heart.size / 2,
+        y: heart.y + heart.size / 2,
+        ttl: 0.38,
+        life: 0.38,
+        scale: 0.58,
+        color: '#ff3f66',
+      });
     }
   }
 
@@ -887,7 +1007,7 @@ function updateMovingPlatforms(dt, wasGrounded) {
     platform.dy = platform.y - previousY;
   });
 
-  for (const item of [...peanuts, ...enemies, ...decor]) {
+  for (const item of [...peanuts, ...hearts, ...enemies, ...decor]) {
     if (item.platformId === undefined || item.kind === 'flying') {
       continue;
     }
@@ -947,6 +1067,16 @@ function peanutBox(peanut) {
     y: peanut.y,
     width: peanut.size,
     height: peanut.size,
+  };
+}
+
+function itemBox(item) {
+  const size = item.size || Math.max(item.width || 0, item.height || 0) || 28;
+  return {
+    x: item.x,
+    y: item.y,
+    width: item.width || size,
+    height: item.height || size,
   };
 }
 
@@ -1010,7 +1140,9 @@ function draw() {
     });
 
     platforms.forEach(drawPlatform);
+    drawTutorialPrompts();
     peanuts.forEach(drawPeanut);
+    hearts.forEach(drawHeart);
     enemies.forEach(drawEnemy);
     bursts.forEach(drawBurst);
     drawHamster();
@@ -1018,6 +1150,67 @@ function draw() {
 
   ctx.restore();
   drawHeroPreview();
+}
+
+function drawTutorialPrompts() {
+  if (!state.level.tutorial) {
+    return;
+  }
+
+  platforms.forEach((platform) => {
+    if (!platform.tutorialPrompt) {
+      return;
+    }
+
+    const x = platform.x + platform.width / 2;
+    const y = platform.y - 116;
+    if (x < -130 || x > state.width + 130) {
+      return;
+    }
+
+    drawTutorialBubble(platform.tutorialPrompt, x, y);
+  });
+}
+
+function drawTutorialBubble(text, x, y) {
+  ctx.save();
+  ctx.font = '900 18px Inter, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  const width = Math.min(230, Math.max(132, ctx.measureText(text).width + 42));
+  const height = 44;
+  const left = clamp(x - width / 2, 14, state.width - width - 14);
+  const top = clamp(y, 84, state.height - 220);
+
+  ctx.shadowColor = 'rgba(55, 24, 8, 0.24)';
+  ctx.shadowBlur = 14;
+  ctx.shadowOffsetY = 7;
+  roundRect(left, top, width, height, 18);
+  const gradient = ctx.createLinearGradient(0, top, 0, top + height);
+  gradient.addColorStop(0, '#ffffff');
+  gradient.addColorStop(1, '#ffe494');
+  ctx.fillStyle = gradient;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = 'rgba(95, 51, 20, 0.18)';
+  ctx.stroke();
+
+  ctx.fillStyle = '#3a1808';
+  ctx.fillText(text, left + width / 2, top + height / 2 + 1);
+  ctx.restore();
+}
+
+function roundRect(x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
 }
 
 function drawBackground(hill, sun) {
@@ -1126,6 +1319,29 @@ function drawPeanut(peanut) {
   drawSheetFrame(sprites.peanut, sx, sy, peanut.x, peanut.y + bounce, peanut.size, peanut.size * 1.18);
 }
 
+function drawHeart(heart) {
+  const frame = Math.floor(state.time * 7 + heart.bob) % 4;
+  const sx = (frame % sprites.heart.cols) * sprites.heart.cell;
+  const sy = Math.floor(frame / sprites.heart.cols) * sprites.heart.cell;
+  const bounce = Math.sin(state.time * 5.2 + heart.bob) * 5;
+  const pulse = 1 + Math.sin(state.time * 7.5 + heart.bob) * 0.08;
+  const size = heart.size * pulse;
+
+  ctx.save();
+  ctx.shadowColor = 'rgba(255, 48, 92, 0.55)';
+  ctx.shadowBlur = 14;
+  drawSheetFrame(
+    sprites.heart,
+    sx,
+    sy,
+    heart.x - (size - heart.size) / 2,
+    heart.y + bounce - (size - heart.size) / 2,
+    size,
+    size,
+  );
+  ctx.restore();
+}
+
 function drawEnemy(enemy) {
   if (enemy.kind === 'thistle') {
     ctx.drawImage(sprites.thistle, enemy.x - 4, enemy.y - 5, enemy.width + 8, enemy.height + 8);
@@ -1155,7 +1371,8 @@ function drawEnemy(enemy) {
 }
 
 function drawBurst(burst) {
-  const progress = 1 - burst.life / 0.34;
+  const ttl = burst.ttl || 0.38;
+  const progress = clamp(1 - burst.life / ttl, 0, 1);
   ctx.save();
   ctx.globalAlpha = Math.max(0, 1 - progress);
   ctx.translate(burst.x, burst.y);
@@ -1167,7 +1384,7 @@ function drawBurst(burst) {
     ctx.moveTo(Math.cos(angle) * 8, Math.sin(angle) * 8);
     ctx.lineTo(Math.cos(angle) * 20, Math.sin(angle) * 20);
   }
-  ctx.strokeStyle = '#e66b2f';
+  ctx.strokeStyle = burst.color || '#e66b2f';
   ctx.lineWidth = 4;
   ctx.stroke();
   ctx.restore();
@@ -1206,6 +1423,38 @@ function drawHeroPreview() {
   const character = selectedCharacter();
   const frame = Math.floor(performance.now() / 95) % 4;
   const sx = frame * character.sprite.cell;
+  const heartFrame = Math.floor(performance.now() / 150) % 4;
+  const heartSx = (heartFrame % sprites.heart.cols) * sprites.heart.cell;
+  const heartSy = Math.floor(heartFrame / sprites.heart.cols) * sprites.heart.cell;
+  const peanutFrame = Math.floor(performance.now() / 130) % 4;
+  const peanutSx = (peanutFrame % sprites.peanut.cols) * sprites.peanut.cell;
+  const peanutSy = Math.floor(peanutFrame / sprites.peanut.cols) * sprites.peanut.cell;
+
+  heroCtx.save();
+  heroCtx.globalAlpha = 0.95;
+  heroCtx.drawImage(
+    sprites.heart.image,
+    heartSx,
+    heartSy,
+    sprites.heart.cell,
+    sprites.heart.cell,
+    rect.width * 0.08,
+    rect.height * 0.16,
+    rect.width * 0.18,
+    rect.width * 0.18,
+  );
+  heroCtx.drawImage(
+    sprites.peanut.image,
+    peanutSx,
+    peanutSy,
+    sprites.peanut.cell,
+    sprites.peanut.cell,
+    rect.width * 0.75,
+    rect.height * 0.28,
+    rect.width * 0.16,
+    rect.width * 0.19,
+  );
+  heroCtx.restore();
   heroCtx.drawImage(
     character.sprite.image,
     sx,
@@ -1257,7 +1506,7 @@ startButton.addEventListener('click', resetGame);
 newGameButton.addEventListener('click', showLevelSelect);
 backHomeButton.addEventListener('click', showHome);
 aboutButton.addEventListener('click', () => {
-  window.alert('Hamster Run: salta, haz doble salto, recoge cacahuetes y pisa enemigos de tierra para ganar puntos extra.');
+  window.alert('Toca para saltar. Segundo toque: doble salto. Recoge nueces y corazones, evita enemigos.');
 });
 shareButton.addEventListener('click', () => {
   shareGame().catch(() => {

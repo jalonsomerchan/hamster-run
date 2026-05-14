@@ -44,13 +44,13 @@ function forceOpenHome() {
 }
 
 function explainHowToPlay() {
-  window.alert('Toca la pantalla para saltar. Toca una segunda vez en el aire para hacer doble salto. Recoge cacahuetes, evita enemigos y aguanta todo lo que puedas.');
+  window.alert('Toca para saltar. Segundo toque: doble salto. Recoge nueces y corazones, evita enemigos.');
 }
 
 async function shareFromHome(button) {
   const shareData = {
     title: 'Hamster Run',
-    text: 'Juega a Hamster Run y atrapa cacahuetes sin caerte.',
+    text: 'Corre en Hamster Run y supera tu marca.',
     url: window.location.href,
   };
 
