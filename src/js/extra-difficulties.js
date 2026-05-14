@@ -2,20 +2,20 @@ const EXTRA_DIFFICULTIES = [
   {
     id: 'extreme',
     name: 'Extremo',
-    detail: 'Sin margen',
+    detail: 'Sin margen real',
     tag: 'Máximo',
-    difficultyBoost: 0.52,
-    speedBoost: 52,
-    enemyBoost: 0.26,
+    difficultyBoost: 1.08,
+    speedBoost: 142,
+    enemyBoost: 0.52,
   },
   {
     id: 'impossible',
     name: 'Imposible',
-    detail: 'Solo expertos',
+    detail: 'Brutal desde el inicio',
     tag: 'Locura',
-    difficultyBoost: 0.72,
-    speedBoost: 72,
-    enemyBoost: 0.38,
+    difficultyBoost: 1.55,
+    speedBoost: 210,
+    enemyBoost: 0.78,
   },
 ];
 
@@ -33,10 +33,15 @@ function registerExtraDifficulties() {
 
   let changed = false;
   for (const difficulty of EXTRA_DIFFICULTIES) {
-    if (!api.difficulties.some((item) => item.id === difficulty.id)) {
-      api.difficulties.push(difficulty);
+    const current = api.difficulties.find((item) => item.id === difficulty.id);
+    if (current) {
+      Object.assign(current, difficulty);
       changed = true;
+      continue;
     }
+
+    api.difficulties.push(difficulty);
+    changed = true;
   }
 
   if (changed) api.refreshRecords?.();
@@ -52,9 +57,15 @@ function renderMissingDifficultyCards() {
   let changed = false;
 
   for (const difficulty of EXTRA_DIFFICULTIES) {
-    if (grid.querySelector(`[data-difficulty="${difficulty.id}"]`)) continue;
-
+    const existingButton = grid.querySelector(`[data-difficulty="${difficulty.id}"]`);
     const selected = difficulty.id === selectedId;
+
+    if (existingButton) {
+      existingButton.setAttribute('aria-label', `${difficulty.name}. ${difficulty.detail}${selected ? ' Seleccionado.' : ''}`);
+      existingButton.innerHTML = `<span><strong>${difficulty.name}</strong>${difficulty.detail}</span><b>${difficulty.tag}</b>`;
+      continue;
+    }
+
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'difficulty-card mode-card';
