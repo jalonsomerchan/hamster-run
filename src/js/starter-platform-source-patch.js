@@ -22,8 +22,8 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
     'return clamp((state.distance - 450) / 3400, 0, 1) + timeDifficultyRamp().difficulty;',
   ],
   [
-    'const chance = 0.075 + difficulty * 0.055;',
     'const chance = 0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies;',
+    'const chance = enemySpawnChance(0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies);',
   ],
   [
     'const gap = random(level.gap[0], level.gap[1]);',
@@ -96,6 +96,20 @@ function highDifficultyPressure() {
     platformShrink: boost * 118 + speedBoost * 0.54,
     vertical: boost * 115 + enemyBoost * 130,
   };
+}
+
+function enemyModeSettings() {
+  const mode = selectedMode();
+  return {
+    disabled: Boolean(mode?.disableEnemies),
+    multiplier: Math.max(0, mode?.enemySpawnMultiplier || 1),
+  };
+}
+
+function enemySpawnChance(baseChance) {
+  const settings = enemyModeSettings();
+  if (settings.disabled) return 0;
+  return clamp(baseChance * settings.multiplier, 0, 0.92);
 }
 
 function pickHarderLane(previousLane, verticalBonus = 0) {
