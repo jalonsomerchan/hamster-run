@@ -9,7 +9,7 @@ const modes = [
   { id: 'endless', name: 'Endless', detail: 'Libre', tag: 'Clásico', timeLimit: null, seed: null },
   { id: 'timeAttack', name: 'Contrarreloj', detail: '60 s', tag: '60s', timeLimit: 60, seed: null },
   { id: 'challenge', name: 'Desafío', detail: 'Fijo', tag: 'Fijo', timeLimit: null, seed: 'hamster-run-daily-challenge-v1', difficultyBoost: 0.18 },
-  { id: 'peaceful', name: 'Paseo tranquilo', detail: 'Sin enemigos', tag: 'Relax', timeLimit: null, seed: null, enemyBoost: -999, enemySpawnMultiplier: 0, disableEnemies: true },
+  { id: 'peaceful', name: 'Paseo tranquilo', detail: 'Sin enemigos', tag: 'Relax', timeLimit: null, seed: null, enemySpawnMultiplier: 0, disableEnemies: true },
   { id: 'horde', name: 'Plaga de zorros', detail: 'Muchos enemigos', tag: 'Horda', timeLimit: null, seed: null, difficultyBoost: 0.5, speedBoost: 80, enemyBoost: 2.4, enemySpawnMultiplier: 4.5 },
 ];
 
@@ -46,7 +46,7 @@ function selectedMode() {
     speedBoost: (mode.speedBoost || 0) + (difficulty.speedBoost || 0),
     enemyBoost: (mode.enemyBoost || 0) + (difficulty.enemyBoost || 0),
     enemySpawnMultiplier: mode.enemySpawnMultiplier ?? 1,
-    disableEnemies: Boolean(mode.disableEnemies),
+    disableEnemies: mode.id === 'peaceful',
   };
 }
 
