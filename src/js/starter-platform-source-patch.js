@@ -22,10 +22,6 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
     'return clamp((state.distance - 450) / 3400, 0, 1) + timeDifficultyRamp().difficulty;',
   ],
   [
-    'state.speedBoost = powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0;',
-    'state.speedBoost = (powerUpEffects.speed > 0 ? POWER_UP_TYPES.speed.boost : 0) + timeDifficultyRamp().speed;',
-  ],
-  [
     'const chance = 0.075 + difficulty * 0.055;',
     'const chance = 0.075 + difficulty * 0.055 + timeDifficultyRamp().enemies;',
   ],
@@ -43,7 +39,7 @@ const STARTER_PLATFORM_SOURCE_PATCHES = [
   ],
   [
     'const scrollSpeed = (state.level.speed + (state.speedBoost || 0)) * dt;',
-    'const scrollSpeed = ((state.level.speed + timeDifficultyRamp().speed) + (state.speedBoost || 0)) * dt;',
+    'const scrollSpeed = (state.level.speed + timeDifficultyRamp().speed + (state.speedBoost || 0)) * dt;',
   ],
 ];
 
