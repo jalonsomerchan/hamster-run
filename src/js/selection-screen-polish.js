@@ -20,6 +20,7 @@ function installSelectionStyles() {
       display: flex !important;
       flex-direction: column !important;
       min-height: 0 !important;
+      overflow: hidden !important;
     }
 
     #menu .selection-brand {
@@ -28,6 +29,7 @@ function installSelectionStyles() {
       display: grid !important;
       grid-template-columns: 86px 1fr !important;
       align-items: center !important;
+      flex: 0 0 auto !important;
       gap: 12px !important;
       margin: 0 0 12px !important;
       border-radius: 14px !important;
@@ -51,7 +53,12 @@ function installSelectionStyles() {
     }
 
     #menu .screen-header {
+      flex: 0 0 auto !important;
       margin-bottom: 8px !important;
+    }
+
+    #menu .panel-footer {
+      flex: 0 0 auto !important;
     }
 
     #menu .panel-footer .hint {
@@ -59,9 +66,14 @@ function installSelectionStyles() {
     }
 
     #menu .menu-scroll-area {
+      flex: 1 1 auto !important;
       min-height: 0 !important;
       overflow: hidden !important;
       touch-action: pan-y !important;
+    }
+
+    #menu .selection-step {
+      min-height: 0 !important;
     }
 
     #menu .mode-grid,
@@ -71,13 +83,35 @@ function installSelectionStyles() {
       display: grid !important;
       grid-template-columns: 1fr !important;
       gap: 12px !important;
-      max-height: min(50dvh, 430px) !important;
+      max-height: min(48dvh, 420px) !important;
       overflow-y: auto !important;
       overscroll-behavior: contain !important;
       -webkit-overflow-scrolling: touch !important;
       touch-action: pan-y !important;
-      padding: 4px 4px 14px !important;
+      padding: 4px 4px 18px !important;
       scroll-padding: 12px !important;
+    }
+
+    #menu .level-select,
+    #menu .level-select[aria-hidden='false'] {
+      display: flex !important;
+      flex-direction: column !important;
+      min-height: 0 !important;
+      max-height: 100% !important;
+      overflow: hidden !important;
+    }
+
+    #menu .level-grid {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      max-height: min(52dvh, 460px) !important;
+      overflow-y: scroll !important;
+      scrollbar-gutter: stable !important;
+    }
+
+    #menu .level-grid::after {
+      content: '';
+      min-height: 8px;
     }
 
     #menu .mode-card,
@@ -85,6 +119,7 @@ function installSelectionStyles() {
     #menu .character-card,
     #menu .level-card {
       width: 100% !important;
+      flex: 0 0 auto !important;
     }
 
     #menu .level-card > b {
@@ -115,6 +150,10 @@ function installSelectionStyles() {
       #menu .selection-brand canvas {
         width: 70px !important;
         height: 50px !important;
+      }
+
+      #menu .level-grid {
+        max-height: min(50dvh, 390px) !important;
       }
     }
   `;
