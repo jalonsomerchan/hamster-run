@@ -8,17 +8,19 @@ const STEPS = ['mode', 'difficulty', 'character', 'level'];
 const modes = [
   { id: 'endless', name: 'Endless', detail: 'Libre', tag: 'Clásico', timeLimit: null, seed: null },
   { id: 'timeAttack', name: 'Contrarreloj', detail: '60 s', tag: '60s', timeLimit: 60, seed: null },
-  { id: 'challenge', name: 'Desafío', detail: 'Fijo', tag: 'Fijo', timeLimit: null, seed: 'hamster-run-daily-challenge-v1', difficultyBoost: 0.18 },
+  { id: 'challenge', name: 'Desafío', detail: 'Fijo', tag: 'Fijo', timeLimit: null, seed: 'hamster-run-daily-challenge-v1', difficultyBoost: 0.08 },
   { id: 'peaceful', name: 'Paseo tranquilo', detail: 'Sin enemigos', tag: 'Relax', timeLimit: null, seed: null, enemySpawnMultiplier: 0, disableEnemies: true },
-  { id: 'horde', name: 'Plaga de zorros', detail: 'Muchos enemigos', tag: 'Horda', timeLimit: null, seed: null, difficultyBoost: 0.5, speedBoost: 80, enemyBoost: 2.4, enemySpawnMultiplier: 4.5 },
+  { id: 'horde', name: 'Plaga de zorros', detail: 'Invasión total', tag: 'HORDA', timeLimit: null, seed: null, difficultyBoost: 0.42, speedBoost: 38, enemyBoost: 0.95, enemySpawnMultiplier: 18.0 },
 ];
 
 const difficulties = [
   { id: 'tutorial', name: 'Tutorial', detail: 'Aprender sin presión', tag: 'Guía', difficultyBoost: -0.22, speedBoost: -16, enemyBoost: -0.18 },
   { id: 'basic', name: 'Básico', detail: 'Inicio cómodo', tag: 'Fácil', difficultyBoost: -0.1, speedBoost: -8, enemyBoost: -0.08 },
   { id: 'medium', name: 'Medio', detail: 'Ritmo normal', tag: 'Normal', difficultyBoost: 0, speedBoost: 0, enemyBoost: 0 },
-  { id: 'hard', name: 'Difícil', detail: 'Saltos largos ya', tag: 'Duro', difficultyBoost: 0.9, speedBoost: 132, enemyBoost: 0.44 },
-  { id: 'veryHard', name: 'Muy difícil', detail: 'Poco margen', tag: 'Pro', difficultyBoost: 1.35, speedBoost: 190, enemyBoost: 0.66 },
+  { id: 'hard', name: 'Difícil', detail: 'Exigente pero justo', tag: 'Duro', difficultyBoost: 0.34, speedBoost: 42, enemyBoost: 0.16 },
+  { id: 'veryHard', name: 'Muy difícil', detail: 'Poco margen', tag: 'Pro', difficultyBoost: 0.56, speedBoost: 68, enemyBoost: 0.24 },
+  { id: 'extreme', name: 'Extremo', detail: 'Muy exigente', tag: 'Máximo', difficultyBoost: 0.96, speedBoost: 118, enemyBoost: 0.42 },
+  { id: 'impossible', name: 'Imposible', detail: 'Al límite', tag: 'Locura', difficultyBoost: 1.32, speedBoost: 168, enemyBoost: 0.62 },
 ];
 
 let selectedModeId = null;
@@ -263,10 +265,10 @@ function ensureStepStructure() {
 }
 
 function ensureStepActions() {
-  const levelPanel = document.querySelector('.level-panel');
   const startButton = document.querySelector('#startButton');
-  if (!levelPanel || document.querySelector('#selectionStepActions')) return;
+  if (!startButton || document.querySelector('#selectionStepActions')) return;
 
+  const parent = startButton.parentNode;
   const actions = document.createElement('div');
   actions.id = 'selectionStepActions';
   actions.className = 'selection-step-actions';
@@ -275,7 +277,7 @@ function ensureStepActions() {
     <button id="selectionNextButton" class="primary-button" type="button" hidden>Continuar</button>
   `;
 
-  levelPanel.insertBefore(actions, startButton);
+  parent.insertBefore(actions, startButton);
   document.querySelector('#selectionBackButton')?.addEventListener('click', () => goStep(-1));
 }
 
@@ -327,16 +329,20 @@ function renderModeSelector(force = false) {
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', 'Selector de modo de juego');
 
+  const modeEmojis = { endless: '♾️', timeAttack: '⏱️', challenge: '🏆', peaceful: '🧘', horde: '🦊' };
   for (const mode of modes) {
     const button = document.createElement('button');
     const selected = mode.id === selectedModeId;
     button.type = 'button';
-    button.className = 'mode-card';
+    button.className = 'level-card';
     button.dataset.mode = mode.id;
     button.setAttribute('aria-pressed', String(selected));
     button.setAttribute('aria-current', selected ? 'true' : 'false');
-    button.setAttribute('aria-label', `${mode.name}. ${mode.detail}${selected ? ' Seleccionado.' : ''}`);
-    button.innerHTML = `<span><strong>${mode.name}</strong>${mode.detail}</span><b>${mode.tag}</b>`;
+    button.innerHTML = `
+      <span>
+        <strong>${modeEmojis[mode.id] || '🎮'} ${mode.name}</strong>
+      </span>
+    `;
     button.addEventListener('click', () => setSelectedMode(mode.id, true));
     grid.append(button);
   }
@@ -355,16 +361,20 @@ function renderDifficultySelector(force = false) {
   grid.setAttribute('role', 'group');
   grid.setAttribute('aria-label', 'Selector de nivel');
 
+  const diffEmojis = { tutorial: '🌱', basic: '🐣', medium: '🐹', hard: '🔥', veryHard: '⚡', extreme: '💀', impossible: '👹' };
   for (const difficulty of difficulties) {
     const button = document.createElement('button');
     const selected = difficulty.id === selectedDifficultyId;
     button.type = 'button';
-    button.className = 'difficulty-card mode-card';
+    button.className = 'level-card';
     button.dataset.difficulty = difficulty.id;
     button.setAttribute('aria-pressed', String(selected));
     button.setAttribute('aria-current', selected ? 'true' : 'false');
-    button.setAttribute('aria-label', `${difficulty.name}. ${difficulty.detail}${selected ? ' Seleccionado.' : ''}`);
-    button.innerHTML = `<span><strong>${difficulty.name}</strong>${difficulty.detail}</span><b>${difficulty.tag}</b>`;
+    button.innerHTML = `
+      <span>
+        <strong>${diffEmojis[difficulty.id] || '📈'} ${difficulty.name}</strong>
+      </span>
+    `;
     button.addEventListener('click', () => setSelectedDifficulty(difficulty.id, true));
     grid.append(button);
   }
