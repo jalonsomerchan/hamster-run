@@ -7,7 +7,6 @@ let lifeGhostCtx = null;
 let lifeGhostAnimation = 0;
 let lifeGhostLast = 0;
 let lifeRespawnDelay = 0;
-let pendingRespawnPoint = null;
 const lifeGhosts = [];
 
 export function getLifeRespawnDelay() { return lifeRespawnDelay; }
@@ -44,7 +43,6 @@ export function jump() {
 export function loseLife(endGame, updateHud) {
   if (state.mode !== 'running' || state.invincible > 0 || lifeRespawnDelay > 0) return;
   playSound('damage');
-  pendingRespawnPoint = findSafeRespawnPoint();
   spawnLifeGhost();
   state.lives = Math.max(0, state.lives - 1);
   state.invincible = 2.9;
@@ -58,22 +56,51 @@ export function loseLife(endGame, updateHud) {
   player.grounded = false;
 }
 
-function findSafeRespawnPoint() {
-  const safePlatform = platforms.find((platform) => platform.x <= player.x && platform.x + platform.width >= player.x + player.width) || platforms.find((platform) => platform.x + platform.width > player.x + player.width) || platforms[0];
-  if (!safePlatform) return null;
-  return { x: clamp(player.x, safePlatform.x + 30, safePlatform.x + safePlatform.width - player.width - 30), y: safePlatform.y - player.height - 18 };
+/**
+ * Find the best platform to respawn on — always recalculated at respawn time.
+ * Picks the widest visible platform that fits the player, then places
+ * the player at a consistent left-side x position.
+ */
+function findSafeRespawnPlatform() {
+  const screenLeft = -60;
+  const screenRight = state.width + 60;
+  const targetX = Math.max(58, state.width * 0.18);
+
+  // Gather all visible platforms sorted by preference:
+  // 1. Platform that contains the target x position
+  // 2. Widest visible platform
+  const visible = platforms.filter(
+    (p) => p.x + p.width > screenLeft && p.x < screenRight && p.width >= player.width + 40,
+  );
+
+  if (!visible.length) return null;
+
+  // Prefer a platform that covers the target x
+  const covering = visible.find(
+    (p) => p.x + 30 <= targetX && p.x + p.width - 30 >= targetX + player.width,
+  );
+
+  // Otherwise pick the widest visible platform
+  const best = covering || visible.reduce((a, b) => (b.width > a.width ? b : a), visible[0]);
+
+  const safeX = clamp(targetX, best.x + 30, best.x + best.width - player.width - 30);
+  const safeY = (best.baseY ?? best.y) - player.height;
+
+  return { platform: best, x: safeX, y: safeY };
 }
 
 export function respawnPlayerAfterLifeLoss(endGame) {
-  const point = pendingRespawnPoint || findSafeRespawnPoint();
-  pendingRespawnPoint = null;
-  if (!point) { endGame(); return; }
-  player.x = point.x;
-  player.y = point.y;
+  const result = findSafeRespawnPlatform();
+  if (!result) { endGame(); return; }
+
+  player.x = result.x;
+  player.y = result.y;
   player.vy = 0;
   player.jumps = 0;
   player.grounded = true;
-  const dangerPadding = 155;
+
+  // Clear nearby enemies so the player doesn't die instantly
+  const dangerPadding = 180;
   enemies.splice(0, enemies.length, ...enemies.filter((enemy) => {
     const enemyCenter = enemy.x + enemy.width / 2;
     return enemyCenter < player.x - dangerPadding || enemyCenter > player.x + player.width + dangerPadding;
