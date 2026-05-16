@@ -7,16 +7,54 @@ import './game-modes.js';
 import { levels } from './config/gameConfig.js';
 import { random } from './utils/math.js';
 import { makeSeededRandom, setSeededRandom, withModeRandom } from './utils/seed.js';
-import { state, player, platforms, peanuts, hearts, enemies, decor, backgroundProps, bursts, powerUps, powerUpEffects, feedbacks, clearPowerUpEffects, perfProbe } from './game/state.js';
+import {
+  state,
+  player,
+  platforms,
+  peanuts,
+  hearts,
+  enemies,
+  decor,
+  backgroundProps,
+  bursts,
+  powerUps,
+  powerUpEffects,
+  feedbacks,
+  clearPowerUpEffects,
+  perfProbe,
+} from './game/state.js';
 import { timeDifficultyRamp, selectedModeSpeedBoost, selectedMode } from './game/difficulty.js';
-import { makePlatform, lastPlatformEnd, spawnPlatform, improveStarterPlatforms, updateMovingPlatforms } from './game/platforms.js';
+import {
+  makePlatform,
+  lastPlatformEnd,
+  spawnPlatform,
+  improveStarterPlatforms,
+  updateMovingPlatforms,
+} from './game/platforms.js';
 import { createBackgroundProps, updateEntities, pruneEntities } from './game/entities.js';
 import { checkCollisions } from './game/collisions.js';
-import { jump, loseLife, applyCharacter, getLifeRespawnDelay, setLifeRespawnDelay, respawnPlayerAfterLifeLoss } from './game/player.js';
+import {
+  jump,
+  loseLife,
+  applyCharacter,
+  getLifeRespawnDelay,
+  setLifeRespawnDelay,
+  respawnPlayerAfterLifeLoss,
+} from './game/player.js';
 import { draw, initRenderer } from './game/Renderer.js';
 import {
-  initUI, setModeTimeLeftRef, buildCharacterMenu, buildLevelMenu, showHome, showLevelSelect,
-  setActiveOverlay, syncGameChrome, updateHud, endGame, shareGame, showPauseMenu,
+  initUI,
+  setModeTimeLeftRef,
+  buildCharacterMenu,
+  buildLevelMenu,
+  showHome,
+  showLevelSelect,
+  setActiveOverlay,
+  syncGameChrome,
+  updateHud,
+  endGame,
+  shareGame,
+  showPauseMenu,
   installConsolidatedPolish,
 } from './game/ui.js';
 
@@ -57,7 +95,11 @@ function resetGame() {
   currentGameMode = window.HamsterRunModes?.getSelectedMode?.() || selectedMode();
   state._currentGameMode = currentGameMode;
   modeTimeLeft = currentGameMode.timeLimit ?? null;
-  setSeededRandom(currentGameMode.seed ? makeSeededRandom(String(currentGameMode.seed) + ':' + state.selectedLevel) : null);
+  setSeededRandom(
+    currentGameMode.seed
+      ? makeSeededRandom(String(currentGameMode.seed) + ':' + state.selectedLevel)
+      : null,
+  );
   powerUps.length = 0;
   clearPowerUpEffects();
 
@@ -161,7 +203,9 @@ function update(dt) {
   state.invincible = Math.max(0, state.invincible - dt);
   state.speedBoost += dt * 2.6;
   const ramp = timeDifficultyRamp();
-  const speed = (state.level.speed + ramp.speed + selectedModeSpeedBoost() + Math.min(82, state.speedBoost)) * (powerUpEffects.speed > 0 ? 1.45 : 1);
+  const speed =
+    (state.level.speed + ramp.speed + selectedModeSpeedBoost() + Math.min(82, state.speedBoost)) *
+    (powerUpEffects.speed > 0 ? 1.45 : 1);
   const move = speed * dt;
   state.distance += move;
   state.shake = Math.max(0, state.shake - dt * 18);
@@ -173,15 +217,28 @@ function update(dt) {
     player.grounded = false;
 
     for (const platform of platforms) {
-      const landed = player.vy >= 0 && previousBottom <= platform.y + 12 && player.y + player.height >= platform.y && player.x + player.width * 0.78 > platform.x && player.x + player.width * 0.22 < platform.x + platform.width;
-      if (landed) { player.y = platform.y - player.height; player.vy = 0; player.grounded = true; player.jumps = 0; }
+      const landed =
+        player.vy >= 0 &&
+        previousBottom <= platform.y + 12 &&
+        player.y + player.height >= platform.y &&
+        player.x + player.width * 0.78 > platform.x &&
+        player.x + player.width * 0.22 < platform.x + platform.width;
+      if (landed) {
+        player.y = platform.y - player.height;
+        player.vy = 0;
+        player.grounded = true;
+        player.jumps = 0;
+      }
     }
   }
 
   for (const group of [platforms, peanuts, hearts, enemies, decor, bursts, powerUps]) {
     group.forEach((item) => {
       item.x -= move;
-      if (item.platformLeft !== undefined) { item.platformLeft -= move; item.platformRight -= move; }
+      if (item.platformLeft !== undefined) {
+        item.platformLeft -= move;
+        item.platformRight -= move;
+      }
     });
   }
 
@@ -209,7 +266,10 @@ function update(dt) {
     withModeRandom(() => spawnPlatform(platforms[platforms.length - 1]));
   }
 
-  state.score = Math.max(state.score, Math.floor(state.distance * 0.18 + state.time * 12 + state.peanuts * 75));
+  state.score = Math.max(
+    state.score,
+    Math.floor(state.distance * 0.18 + state.time * 12 + state.peanuts * 75),
+  );
   updateHud();
 }
 
@@ -218,7 +278,15 @@ function loop(now) {
   state.last = now;
   update(dt);
   draw();
-  if (perfProbe.enabled) { perfProbe.frames += 1; perfProbe.acc += dt; if (perfProbe.acc >= 1) { console.log(`FPS: ${Math.round(perfProbe.frames / perfProbe.acc)}`); perfProbe.frames = 0; perfProbe.acc = 0; } }
+  if (perfProbe.enabled) {
+    perfProbe.frames += 1;
+    perfProbe.acc += dt;
+    if (perfProbe.acc >= 1) {
+      console.log(`FPS: ${Math.round(perfProbe.frames / perfProbe.acc)}`);
+      perfProbe.frames = 0;
+      perfProbe.acc = 0;
+    }
+  }
   requestAnimationFrame(loop);
 }
 
@@ -250,17 +318,36 @@ window.HamsterRunPauseControls = {
   },
 };
 
+function hasActiveOverlay() {
+  return Boolean(document.querySelector('.overlay.is-visible:not([hidden])'));
+}
+
+function isScrollableMenuTarget(target) {
+  return Boolean(
+    target.closest(
+      '.panel, .menu-scroll-area, .mode-grid, .difficulty-grid, .character-grid, .level-grid',
+    ),
+  );
+}
+
 window.addEventListener('resize', resize);
 window.addEventListener('pointerdown', (event) => {
-  const isButton = event.target.closest('button');
-  if (!isButton) {
-    event.preventDefault();
-    jump();
-  }
+  if (state.mode !== 'running' || hasActiveOverlay()) return;
+  if (!(event.target instanceof Element)) return;
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  if (!event.target.closest('#game')) return;
+
+  event.preventDefault();
+  jump();
 });
 window.addEventListener(
   'touchmove',
   (event) => {
+    if (state.mode !== 'running' || hasActiveOverlay()) return;
+    if (!(event.target instanceof Element)) return;
+    if (isScrollableMenuTarget(event.target)) return;
+    if (!event.target.closest('#game')) return;
+
     event.preventDefault();
   },
   { passive: false },
@@ -285,7 +372,9 @@ startButton.addEventListener('click', resetGame);
 newGameButton.addEventListener('click', showLevelSelect);
 backHomeButton.addEventListener('click', showHome);
 aboutButton.addEventListener('click', () => {
-  window.alert('Toca para saltar. Segundo toque: doble salto. Recoge nueces y corazones, evita enemigos.');
+  window.alert(
+    'Toca para saltar. Segundo toque: doble salto. Recoge nueces y corazones, evita enemigos.',
+  );
 });
 shareButton.addEventListener('click', () => {
   shareGame(shareButton).catch(() => {

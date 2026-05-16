@@ -1,6 +1,16 @@
 import { POWER_UP_TYPES } from '../config/gameConfig.js';
 
-import { state, player, peanuts, hearts, enemies, powerUps, powerUpEffects, feedbacks, bursts } from './state.js';
+import {
+  state,
+  player,
+  peanuts,
+  hearts,
+  enemies,
+  powerUps,
+  powerUpEffects,
+  feedbacks,
+  bursts,
+} from './state.js';
 import { playSound } from './player.js';
 
 export function playerBox(padding = 0) {
@@ -13,7 +23,7 @@ export function playerBox(padding = 0) {
 }
 
 export function enemyBox(enemy) {
-  if (enemy.kind === 'flying') {
+  if (enemy.kind === 'flying' || enemy.kind === 'acornBat') {
     return {
       x: enemy.x + 10,
       y: enemy.y + 10,
@@ -52,9 +62,15 @@ export function canStomp(enemy, previousBottom) {
   const box = enemyBox(enemy);
   const pBox = playerBox(8);
   const playerBottom = player.y + player.height;
-  const horizontalOverlap = Math.min(pBox.x + pBox.width, box.x + box.width) - Math.max(pBox.x, box.x);
+  const horizontalOverlap =
+    Math.min(pBox.x + pBox.width, box.x + box.width) - Math.max(pBox.x, box.x);
   const minRequiredOverlap = Math.min(pBox.width, box.width) * 0.18;
-  return horizontalOverlap >= minRequiredOverlap && previousBottom <= box.y + Math.max(18, box.height * 0.48) && playerBottom <= box.y + box.height * 0.78 && player.vy >= -120;
+  return (
+    horizontalOverlap >= minRequiredOverlap &&
+    previousBottom <= box.y + Math.max(18, box.height * 0.48) &&
+    playerBottom <= box.y + box.height * 0.78 &&
+    player.vy >= -120
+  );
 }
 
 export function stompEnemy(enemy) {
@@ -62,11 +78,18 @@ export function stompEnemy(enemy) {
   playSound('stomp');
   enemy.defeated = true;
   enemy.defeatTime = 0.28;
-  state.score += enemy.kind === 'flying' ? 180 : 140;
+  state.score += enemy.kind === 'flying' || enemy.kind === 'acornBat' ? 180 : 140;
   player.vy = -state.level.jump * 0.46;
   player.jumps = 1;
   player.grounded = false;
-  bursts.push({ x: enemy.x + enemy.width / 2, y: enemy.y + enemy.height / 2, ttl: 0.34, life: 0.34, radius: Math.max(enemy.width, enemy.height) * 0.55, color: 'rgba(255, 232, 120, 0.65)' });
+  bursts.push({
+    x: enemy.x + enemy.width / 2,
+    y: enemy.y + enemy.height / 2,
+    ttl: 0.34,
+    life: 0.34,
+    radius: Math.max(enemy.width, enemy.height) * 0.55,
+    color: 'rgba(255, 232, 120, 0.65)',
+  });
 }
 
 export function checkCollisions(loseLife) {
@@ -82,7 +105,14 @@ export function checkCollisions(loseLife) {
       state.score += 75;
       addFeedback('+75', peanut.x + peanut.size / 2, peanut.y - 12, '#f5cb6b');
       playSound('peanut');
-      bursts.push({ x: peanut.x + peanut.size / 2, y: peanut.y + peanut.size / 2, ttl: 0.32, life: 0.32, radius: 24, color: '#f5cb6b' });
+      bursts.push({
+        x: peanut.x + peanut.size / 2,
+        y: peanut.y + peanut.size / 2,
+        ttl: 0.32,
+        life: 0.32,
+        radius: 24,
+        color: '#f5cb6b',
+      });
     }
   }
 
@@ -93,7 +123,14 @@ export function checkCollisions(loseLife) {
       state.score += 110;
       addFeedback('VIDA!', heart.x + heart.size / 2, heart.y - 12, '#ff3f66');
       playSound('heart');
-      bursts.push({ x: heart.x + heart.size / 2, y: heart.y + heart.size / 2, ttl: 0.38, life: 0.38, scale: 0.58, color: '#ff3f66' });
+      bursts.push({
+        x: heart.x + heart.size / 2,
+        y: heart.y + heart.size / 2,
+        ttl: 0.38,
+        life: 0.38,
+        scale: 0.58,
+        color: '#ff3f66',
+      });
     }
   }
 
@@ -108,7 +145,14 @@ export function checkCollisions(loseLife) {
       state.score += def.score;
       addFeedback(def.label, player.x + player.width / 2, player.y - 12, def.color);
       playSound('powerup');
-      bursts.push({ x: p.x + p.size / 2, y: p.y + p.size / 2, ttl: 0.46, life: 0.46, radius: 28, color: def.color });
+      bursts.push({
+        x: p.x + p.size / 2,
+        y: p.y + p.size / 2,
+        ttl: 0.46,
+        life: 0.46,
+        radius: 28,
+        color: def.color,
+      });
     }
   }
 
