@@ -1,0 +1,1 @@
+Mushroom Hopper side-view clean HD 1x4 enemy sprite sheet for Hamster Run; solid #FF00FF background; same identity and scale; no labels or borders.

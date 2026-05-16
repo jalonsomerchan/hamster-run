@@ -1,21 +1,38 @@
-import { LANDING_ZONE, START_SAFE_PLATFORMS, POWER_UP_TYPES, backgroundThemes } from '../config/gameConfig.js';
+import {
+  LANDING_ZONE,
+  START_SAFE_PLATFORMS,
+  POWER_UP_TYPES,
+  backgroundThemes,
+} from '../config/gameConfig.js';
 import { sprites } from '../config/assets.js';
 import { random, clamp } from '../utils/math.js';
-import { state, platforms, peanuts, hearts, enemies, decor, bursts, powerUps, backgroundProps } from './state.js';
+import {
+  state,
+  platforms,
+  peanuts,
+  hearts,
+  enemies,
+  decor,
+  bursts,
+  powerUps,
+  backgroundProps,
+} from './state.js';
 import { currentDifficulty } from './difficulty.js';
 
 export function spawnEnemy(platform, enemyX, difficulty) {
-  const canFly = platform.index > START_SAFE_PLATFORMS + 2 && Math.random() < 0.28 + difficulty * 0.28;
+  const canFly =
+    platform.index > START_SAFE_PLATFORMS + 2 && Math.random() < 0.28 + difficulty * 0.28;
   if (canFly) {
+    const kind = Math.random() < 0.42 ? 'acornBat' : 'flying';
     const baseY = platform.y - random(112, 154);
     enemies.push({
-      kind: 'flying',
+      kind,
       x: platform.x + platform.width + random(18, 60),
       y: baseY,
       baseY,
-      width: 68,
-      height: 58,
-      vx: random(28, 48) + difficulty * 18,
+      width: kind === 'acornBat' ? 70 : 68,
+      height: kind === 'acornBat' ? 56 : 58,
+      vx: random(28, 48) + difficulty * (kind === 'acornBat' ? 20 : 18),
       phase: random(0, Math.PI * 2),
     });
     return;
@@ -37,7 +54,22 @@ export function spawnEnemy(platform, enemyX, difficulty) {
       direction: Math.random() < 0.5 ? -1 : 1,
       phase: random(0, Math.PI * 2),
     });
-  } else if (roll < 0.64) {
+  } else if (roll < 0.58) {
+    enemies.push({
+      kind: 'mushroomHopper',
+      x: enemyX,
+      y: platform.y - 44,
+      width: 54,
+      height: 40,
+      platformLeft: platform.x + LANDING_ZONE,
+      platformRight: platform.x + platform.width - LANDING_ZONE - 54,
+      platformId: platform.id,
+      yOffset: 44,
+      patrolSpeed: random(16, 28) + difficulty * 14,
+      direction: Math.random() < 0.5 ? -1 : 1,
+      phase: random(0, Math.PI * 2),
+    });
+  } else if (roll < 0.72) {
     enemies.push({
       kind: 'enemy',
       x: enemyX,
@@ -51,7 +83,7 @@ export function spawnEnemy(platform, enemyX, difficulty) {
       patrolSpeed: random(14, 26) + difficulty * 12,
       direction: Math.random() < 0.5 ? -1 : 1,
     });
-  } else if (roll < 0.84) {
+  } else if (roll < 0.88) {
     enemies.push({
       kind: 'chestnut',
       x: enemyX,
@@ -136,13 +168,33 @@ export function spawnPowerUp(platform, type, ratio = 0.5) {
   const def = POWER_UP_TYPES[type];
   if (!platform || !def) return;
   const size = 34;
-  const x = clamp(platform.x + platform.width * ratio, platform.x + 46, platform.x + platform.width - 46);
+  const x = clamp(
+    platform.x + platform.width * ratio,
+    platform.x + 46,
+    platform.x + platform.width - 46,
+  );
   const yOffset = 92;
-  powerUps.push({ type, x, y: platform.y - yOffset, size, taken: false, bob: random(0, Math.PI * 2), platformId: platform.id, yOffset, pulse: 0 });
+  powerUps.push({
+    type,
+    x,
+    y: platform.y - yOffset,
+    size,
+    taken: false,
+    bob: random(0, Math.PI * 2),
+    platformId: platform.id,
+    yOffset,
+    pulse: 0,
+  });
 }
 
 export function maybeSpawnPowerUp(platform) {
-  if (!platform || state.level?.tutorial || platform.index <= START_SAFE_PLATFORMS + 1 || platform.width < 210) return;
+  if (
+    !platform ||
+    state.level?.tutorial ||
+    platform.index <= START_SAFE_PLATFORMS + 1 ||
+    platform.width < 210
+  )
+    return;
   const difficulty = currentDifficulty();
   const chance = 0.075 + difficulty * 0.055;
   if (Math.random() > chance) return;
@@ -186,15 +238,34 @@ export function spawnBackgroundProp(initial = false) {
 
 export function updateEntities(dt) {
   enemies.forEach((enemy) => {
-    if (enemy.kind === 'ground' || enemy.kind === 'enemy' || enemy.kind === 'chestnut') updatePatrolEnemy(enemy, dt);
-    else if (enemy.kind === 'flying') { enemy.x -= (enemy.vx || 65) * dt; enemy.y = enemy.baseY + Math.sin(state.time * 4.2 + enemy.phase) * 16; }
+    if (
+      enemy.kind === 'ground' ||
+      enemy.kind === 'enemy' ||
+      enemy.kind === 'chestnut' ||
+      enemy.kind === 'mushroomHopper'
+    )
+      updatePatrolEnemy(enemy, dt);
+    else if (enemy.kind === 'flying' || enemy.kind === 'acornBat') {
+      enemy.x -= (enemy.vx || 65) * dt;
+      enemy.y = enemy.baseY + Math.sin(state.time * 4.2 + enemy.phase) * 16;
+    }
   });
-  bursts.forEach((burst) => { burst.life -= dt; burst.y -= 42 * dt; if (burst.scale !== undefined) burst.scale += 1.8 * dt; });
-  powerUps.forEach((p) => { p.pulse += dt * 6; });
+  bursts.forEach((burst) => {
+    burst.life -= dt;
+    burst.y -= 42 * dt;
+    if (burst.scale !== undefined) burst.scale += 1.8 * dt;
+  });
+  powerUps.forEach((p) => {
+    p.pulse += dt * 6;
+  });
 }
 
 function updatePatrolEnemy(enemy, dt) {
-  if (enemy.platformLeft === undefined || enemy.platformRight === undefined || enemy.platformRight <= enemy.platformLeft) {
+  if (
+    enemy.platformLeft === undefined ||
+    enemy.platformRight === undefined ||
+    enemy.platformRight <= enemy.platformLeft
+  ) {
     return;
   }
   enemy.x += enemy.direction * enemy.patrolSpeed * dt;

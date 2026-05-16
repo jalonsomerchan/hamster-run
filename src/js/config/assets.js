@@ -10,6 +10,8 @@ import enemySheet from '../../assets/sprites/enemy/sheet-transparent.png';
 import groundEnemySheet from '../../assets/sprites/enemies/ground/sheet-transparent.png';
 import flyingEnemySheet from '../../assets/sprites/enemies/flying/sheet-transparent.png';
 import chestnutEnemySheet from '../../assets/sprites/enemies/chestnut/sheet-transparent.png';
+import mushroomHopperSheet from '../../assets/sprites/enemies/mushroom-hopper/sheet-transparent.png';
+import acornBatSheet from '../../assets/sprites/enemies/acorn-bat/sheet-transparent.png';
 import platformWoodLong from '../../assets/sprites/platforms/platform-1.png';
 import platformWoodMedium from '../../assets/sprites/platforms/platform-2.png';
 import platformWoodShort from '../../assets/sprites/platforms/platform-3.png';
@@ -62,6 +64,8 @@ export const sprites = {
   groundEnemy: { image: makeImage(groundEnemySheet), cols: 4, rows: 1, cell: 168 },
   flyingEnemy: { image: makeImage(flyingEnemySheet), cols: 4, rows: 1, cell: 168 },
   chestnutEnemy: { image: makeImage(chestnutEnemySheet), cols: 4, rows: 1, cell: 168 },
+  mushroomHopper: { image: makeImage(mushroomHopperSheet), cols: 4, rows: 1, cell: 168 },
+  acornBat: { image: makeImage(acornBatSheet), cols: 4, rows: 1, cell: 168 },
   platforms: platformAssets,
   background: backgroundAssets,
   thistle: makeImage(thistleSprite),

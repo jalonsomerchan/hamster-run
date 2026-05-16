@@ -1,0 +1,79 @@
+{
+  "target": "asset",
+  "mode": "hover",
+  "prompt": "Mushroom Hopper side-view clean HD 1x4 enemy sprite sheet for Hamster Run; solid #FF00FF background; same identity and scale; no labels or borders.",
+  "role": "",
+  "input": "/Users/jorgealonso/.codex/generated_images/019e2f2f-cb1b-70e0-a84a-52603d1fa43e/ig_00538ec3e2c98a8b016a07fd15377c819192ff9b3460bc04ce.png",
+  "threshold": 100,
+  "edge_threshold": 150,
+  "duration": 150,
+  "rows": 1,
+  "cols": 4,
+  "cell_size": 168,
+  "fit_scale": 0.82,
+  "trim_border": 4,
+  "edge_clean_depth": 3,
+  "align": "bottom",
+  "shared_scale": true,
+  "component_mode": "largest",
+  "component_padding": 8,
+  "min_component_area": 1,
+  "edge_touch_margin": 0,
+  "frame_labels": [
+    "mushroom-hopper-1",
+    "mushroom-hopper-2",
+    "mushroom-hopper-3",
+    "mushroom-hopper-4"
+  ],
+  "frames": [
+    {
+      "grid": [0, 0],
+      "source_box": [0, 0, 495, 793],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 76799,
+      "selected_component_bbox": [95, 299, 450, 579],
+      "crop_bbox": [87, 291, 458, 587],
+      "edge_touch": false,
+      "output_size": [121, 96],
+      "paste_position": [23, 57]
+    },
+    {
+      "grid": [0, 1],
+      "source_box": [495, 0, 990, 793],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 90299,
+      "selected_component_bbox": [65, 173, 426, 515],
+      "crop_bbox": [57, 165, 434, 523],
+      "edge_touch": false,
+      "output_size": [123, 116],
+      "paste_position": [22, 37]
+    },
+    {
+      "grid": [0, 2],
+      "source_box": [990, 0, 1485, 793],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 61618,
+      "selected_component_bbox": [17, 401, 423, 582],
+      "crop_bbox": [9, 393, 431, 590],
+      "edge_touch": false,
+      "output_size": [137, 64],
+      "paste_position": [15, 89]
+    },
+    {
+      "grid": [0, 3],
+      "source_box": [1485, 0, 1980, 793],
+      "component_mode": "largest",
+      "component_count": 1,
+      "selected_component_area": 80029,
+      "selected_component_bbox": [28, 265, 385, 578],
+      "crop_bbox": [20, 257, 393, 586],
+      "edge_touch": false,
+      "output_size": [121, 107],
+      "paste_position": [23, 46]
+    }
+  ],
+  "edge_touch_frames": []
+}

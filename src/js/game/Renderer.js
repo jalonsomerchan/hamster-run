@@ -1,7 +1,20 @@
 import { POWER_UP_TYPES, backgroundThemes } from '../config/gameConfig.js';
 import { sprites } from '../config/assets.js';
 import { clamp, random } from '../utils/math.js';
-import { state, player, platforms, peanuts, hearts, enemies, decor, bursts, powerUps, backgroundProps, powerUpEffects, feedbacks } from './state.js';
+import {
+  state,
+  player,
+  platforms,
+  peanuts,
+  hearts,
+  enemies,
+  decor,
+  bursts,
+  powerUps,
+  backgroundProps,
+  powerUpEffects,
+  feedbacks,
+} from './state.js';
 import { selectedCharacter } from './player.js';
 
 let ctx = null;
@@ -46,13 +59,15 @@ function drawBackground(hill, sun) {
   const horizon = state.height * 0.62;
 
   const bgCanvas = ctx.canvas;
-  const bgStyle = state.level.background ? `url(${state.level.background}) center / cover no-repeat` : `linear-gradient(180deg, ${theme.skyTop} 0%, ${theme.skyBottom} 62%, ${theme.ground} 62%, ${theme.ground} 100%)`;
+  const bgStyle = state.level.background
+    ? `url(${state.level.background}) center / cover no-repeat`
+    : `linear-gradient(180deg, ${theme.skyTop} 0%, ${theme.skyBottom} 62%, ${theme.ground} 62%, ${theme.ground} 100%)`;
   if (bgCanvas.style.background !== bgStyle) bgCanvas.style.background = bgStyle;
 
   if (state.level.background) {
     ctx.fillStyle = sun;
     for (let i = 0; i < 18; i += 1) {
-      const x = (i * 91 - (state.distance * 0.22) % 91) % (state.width + 120);
+      const x = (i * 91 - ((state.distance * 0.22) % 91)) % (state.width + 120);
       ctx.fillRect(x - 20, state.height - 18, 54, 18);
     }
     return;
@@ -76,7 +91,7 @@ function drawBackground(hill, sun) {
 
   ctx.fillStyle = sun;
   for (let i = 0; i < 18; i += 1) {
-    const x = (i * 91 - (state.distance * 0.22) % 91) % (state.width + 120);
+    const x = (i * 91 - ((state.distance * 0.22) % 91)) % (state.width + 120);
     ctx.fillRect(x - 20, state.height - 18, 54, 18);
   }
 
@@ -139,7 +154,15 @@ function drawPeanut(peanut) {
   const sx = (frame % sprites.peanut.cols) * sprites.peanut.cell;
   const sy = Math.floor(frame / sprites.peanut.cols) * sprites.peanut.cell;
   const bounce = Math.sin(state.time * 6 + peanut.bob) * 4;
-  drawSheetFrame(sprites.peanut, sx, sy, peanut.x, peanut.y + bounce, peanut.size, peanut.size * 1.18);
+  drawSheetFrame(
+    sprites.peanut,
+    sx,
+    sy,
+    peanut.x,
+    peanut.y + bounce,
+    peanut.size,
+    peanut.size * 1.18,
+  );
 }
 
 function drawHeart(heart) {
@@ -173,24 +196,84 @@ function drawEnemy(enemy) {
   if (enemy.kind === 'ground') {
     const frame = Math.floor(state.time * 9 + enemy.phase) % 4;
     const sx = frame * sprites.groundEnemy.cell;
-    drawSheetFrame(sprites.groundEnemy, sx, 0, enemy.x - 6, enemy.y - 16, enemy.width + 16, enemy.height + 28);
+    drawSheetFrame(
+      sprites.groundEnemy,
+      sx,
+      0,
+      enemy.x - 6,
+      enemy.y - 16,
+      enemy.width + 16,
+      enemy.height + 28,
+    );
     return;
   }
   if (enemy.kind === 'chestnut') {
     const frame = Math.floor(state.time * 10 + enemy.phase) % 4;
     const sx = frame * sprites.chestnutEnemy.cell;
-    drawSheetFrame(sprites.chestnutEnemy, sx, 0, enemy.x - 7, enemy.y - 16, enemy.width + 18, enemy.height + 28);
+    drawSheetFrame(
+      sprites.chestnutEnemy,
+      sx,
+      0,
+      enemy.x - 7,
+      enemy.y - 16,
+      enemy.width + 18,
+      enemy.height + 28,
+    );
+    return;
+  }
+  if (enemy.kind === 'mushroomHopper') {
+    const frame = Math.floor(state.time * 8 + enemy.phase) % 4;
+    const sx = frame * sprites.mushroomHopper.cell;
+    drawSheetFrame(
+      sprites.mushroomHopper,
+      sx,
+      0,
+      enemy.x - 9,
+      enemy.y - 18,
+      enemy.width + 22,
+      enemy.height + 30,
+    );
+    return;
+  }
+  if (enemy.kind === 'acornBat') {
+    const frame = Math.floor(state.time * 12 + enemy.phase) % 4;
+    const sx = frame * sprites.acornBat.cell;
+    drawSheetFrame(
+      sprites.acornBat,
+      sx,
+      0,
+      enemy.x - 14,
+      enemy.y - 17,
+      enemy.width + 28,
+      enemy.height + 34,
+    );
     return;
   }
   if (enemy.kind === 'flying') {
     const frame = Math.floor(state.time * 11 + enemy.phase) % 4;
     const sx = frame * sprites.flyingEnemy.cell;
-    drawSheetFrame(sprites.flyingEnemy, sx, 0, enemy.x - 12, enemy.y - 15, enemy.width + 24, enemy.height + 30);
+    drawSheetFrame(
+      sprites.flyingEnemy,
+      sx,
+      0,
+      enemy.x - 12,
+      enemy.y - 15,
+      enemy.width + 24,
+      enemy.height + 30,
+    );
     return;
   }
   const frame = Math.floor(state.time * 9) % 4;
   const sx = frame * sprites.enemy.cell;
-  drawSheetFrame(sprites.enemy, sx, 0, enemy.x - 5, enemy.y - 14, enemy.width + 18, enemy.height + 26);
+  drawSheetFrame(
+    sprites.enemy,
+    sx,
+    0,
+    enemy.x - 5,
+    enemy.y - 14,
+    enemy.width + 18,
+    enemy.height + 26,
+  );
 }
 
 function drawBurst(burst) {
@@ -223,7 +306,15 @@ function drawHamster() {
     ctx.save();
     ctx.filter = 'brightness(2) contrast(1.2)';
     ctx.globalAlpha = 0.42;
-    drawSheetFrame(character.sprite, sx, 0, player.x - 20, player.y - 32 + squash, player.width + 40, player.height + 46 - squash);
+    drawSheetFrame(
+      character.sprite,
+      sx,
+      0,
+      player.x - 20,
+      player.y - 32 + squash,
+      player.width + 40,
+      player.height + 46 - squash,
+    );
     ctx.restore();
   }
 
@@ -232,10 +323,26 @@ function drawHamster() {
     ctx.shadowColor = 'rgba(255, 216, 74, 0.82)';
     ctx.shadowBlur = 24;
     ctx.filter = `hue-rotate(${state.time * 180}deg) brightness(1.2)`;
-    drawSheetFrame(character.sprite, sx, 0, player.x - 17, player.y - 28 + squash, player.width + 34, player.height + 38 - squash);
+    drawSheetFrame(
+      character.sprite,
+      sx,
+      0,
+      player.x - 17,
+      player.y - 28 + squash,
+      player.width + 34,
+      player.height + 38 - squash,
+    );
     ctx.restore();
   } else {
-    drawSheetFrame(character.sprite, sx, 0, player.x - 17, player.y - 28 + squash, player.width + 34, player.height + 38 - squash);
+    drawSheetFrame(
+      character.sprite,
+      sx,
+      0,
+      player.x - 17,
+      player.y - 28 + squash,
+      player.width + 34,
+      player.height + 38 - squash,
+    );
   }
 }
 
@@ -432,12 +539,15 @@ export function draw() {
 
   ctx.save();
   ctx.clearRect(0, 0, state.width, state.height);
-  if (state.shake > 0) ctx.translate(random(-state.shake, state.shake), random(-state.shake, state.shake));
+  if (state.shake > 0)
+    ctx.translate(random(-state.shake, state.shake), random(-state.shake, state.shake));
 
   drawBackground(hill, sun);
 
   if (state.mode === 'running' || state.mode === 'over' || state.mode === 'paused') {
-    decor.forEach((item) => { ctx.drawImage(sprites.grass, item.x, item.y, item.size, item.size); });
+    decor.forEach((item) => {
+      ctx.drawImage(sprites.grass, item.x, item.y, item.size, item.size);
+    });
     platforms.forEach(drawPlatform);
     drawTutorialPrompts();
     peanuts.forEach(drawPeanut);
